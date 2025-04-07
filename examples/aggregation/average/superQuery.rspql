@@ -1,0 +1,10 @@
+PREFIX ex: <http://example.org/>
+REGISTER RStream <output> AS
+SELECT (AVG(?age) AS ?averageAgeOfEveryone)
+FROM NAMED WINDOW ex:w1 ON STREAM ex:stream1 [RANGE 10 STEP 5]
+WHERE {
+  WINDOW ex:w1 {
+    ?person ex:hasAge ?age.
+  }
+}
+
