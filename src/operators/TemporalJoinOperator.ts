@@ -1,5 +1,5 @@
 import { CSPARQLWindow, QuadContainer, WindowInstance } from "./s2r";
-import { Quad } from "n3";
+import { Literal, Quad } from "n3";
 
 
 type Window = {
@@ -22,44 +22,46 @@ export class TemporalJoinOperator {
     }
     public temporalJoin(windowLeft: CSPARQLWindow, windowRight: CSPARQLWindow): [Window, QuadContainer][] {
         const joinedResults: [Window, QuadContainer][] = [];
-
-        for (let t = this.result_window_start + this.result_window_slide; t <= t + this.result_window_size; t += this.result_window_slide) {
+    
+        // 👇 Set an end time based on the latest close time from both streams
+        const allWindowInstances = [...windowLeft.active_windows, ...windowRight.active_windows];
+        const maxCloseTime = Math.max(...allWindowInstances.map(([win]) => win.close));
+    
+        for (let t = this.result_window_start + this.result_window_slide; t <= maxCloseTime; t += this.result_window_slide) {
             const windowStart = t - this.result_window_size;
             const windowEnd = t;
-
+    
             const eventsLeft = this.collectEventsInWindow(windowLeft, windowStart, windowEnd);
             const eventsRight = this.collectEventsInWindow(windowRight, windowStart, windowEnd);
-
-            
-            
-            const merged = this.mergeEvents(eventsLeft, eventsRight);
-
-            if (merged.elements.size > 0) {
-                joinedResults.push([
-                    {
-                        open: windowStart, close: windowEnd
-                    },
-                    merged
-                ]);
+    
+            if (eventsLeft.length > 0 && eventsRight.length > 0) {
+                const merged = this.mergeEvents(eventsLeft, eventsRight);
+                if (merged.elements.size > 0) {
+                    joinedResults.push([
+                        { open: windowStart, close: windowEnd },
+                        merged
+                    ]);
+                }
             }
         }
+    
         return joinedResults;
-
     }
+    
 
     private collectEventsInWindow(window: CSPARQLWindow, start: number, end: number): Quad[] {
         const collected: Quad[] = [];
-    
+
         for (const [win, container] of window.active_windows) {
             const overlap = (win.open < end && win.close > start);
             if (overlap) {
                 collected.push(...container.elements);
             }
         }
-    
+
         return collected;
     }
-    
+
 
     private mergeEvents(a: Quad[], b: Quad[]): any {
         const set = new Set<Quad>([...a, ...b]);

@@ -73,15 +73,13 @@ async function joinStreams() {
   const streamA: CSPARQLWindow = new CSPARQLWindow('streamA', 10, 5, ReportStrategy.OnWindowClose, Tick.TimeDriven, 0, 60000);
   const streamB: CSPARQLWindow = new CSPARQLWindow('streamB', 20, 10, ReportStrategy.OnWindowClose, Tick.TimeDriven, 0, 60000);
 
-  generate_data(10, streamA);
-  generate_data(10, streamB);
+  generate_data(100, streamA);
+  generate_data(100, streamB);
 
   const temporalJoinOperator = new TemporalJoinOperator(10, 5, 0);
   const joinedResults = temporalJoinOperator.temporalJoin(streamA, streamB);
 
-  for (let result of joinedResults) {
-    console.log(result);
-  }
+  console.log(joinedResults);
 
 }
 function generate_data(num_events: number, csparqlWindow: CSPARQLWindow) {
