@@ -4,6 +4,7 @@ import { lcm } from "../../util/Util";
 // @ts-ignore
 import { DataFactory, Quad } from "n3";
 import { TemporalJoinOperator } from "../../operators/TemporalJoinOperator";
+import { ChunkCreationOperator } from "../../operators/ChunkCreationOperator";
 const { namedNode, literal, defaultGraph, quad } = DataFactory;
 
 const selectQueryOne = `
@@ -76,10 +77,15 @@ async function joinStreams() {
   generate_data(100, streamA);
   generate_data(100, streamB);
 
-  const temporalJoinOperator = new TemporalJoinOperator(10, 5, 0);
-  const joinedResults = temporalJoinOperator.temporalJoin(streamA, streamB);
+  // const temporalJoinOperator = new TemporalJoinOperator(10, 5, 0);
+  // const joinedResults = temporalJoinOperator.temporalJoin(streamA, streamB);
+  // console.log(joinedResults);
+
+  const chunkCreationOperator = new ChunkCreationOperator(0);
+  const joinedResults = chunkCreationOperator.temporalJoin(streamA, streamB);
 
   console.log(joinedResults);
+  
 
 }
 function generate_data(num_events: number, csparqlWindow: CSPARQLWindow) {
