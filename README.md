@@ -3,6 +3,10 @@
 > Combining and Aggregating RDF Streams to provide actionable insights. 
 
 
+<p align="center">
+  <img src="Stream-Hive.png" alt="StreamHive" width="300"/>
+</p>
+
 ## Linting
 
 You run the linter via 
