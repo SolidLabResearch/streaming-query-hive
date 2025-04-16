@@ -6,22 +6,18 @@ type Window = {
     close: number;
 };
 
-function gcd(a: number, b: number): number {
-    while (b !== 0) {
-        const temp = b;
-        b = a % b;
-        a = temp;
-    }
-    return a;
+function lcm(a: number, b: number): number {
+    const gcd = (x: number, y: number): number => y === 0 ? x : gcd(y, x % y);
+    return Math.abs(a * b) / gcd(a, b);
 }
 
-function findGCD(values: number[]): number {
-    return values.reduce((acc, val) => gcd(acc, val));
+function findLCM(values: number[]): number {
+    return values.reduce((acc, val) => lcm(acc, val));
 }
 
 type JoinGranularity = "width-only" | "width-and-slide";
 
-export class ChunkCreationOperator {
+export class GreatestChunkOperator {
     private result_window_start: number;
     private granularity: JoinGranularity;
 
@@ -44,24 +40,24 @@ export class ChunkCreationOperator {
 
         const widths = allWindowInstances.map(([win]) => win.close - win.open);
 
-        let gcdWidth: number;
+        let lcmWidth: number;
         if (this.granularity === "width-and-slide") {
-            gcdWidth = findGCD([
+            lcmWidth = findLCM([
                 ...widths,
                 windowLeft.slide,
                 windowRight.slide
             ]);
         } else {
-            gcdWidth = findGCD(widths);
+            lcmWidth = findLCM(widths);
         }
 
         for (
             let t = this.result_window_start;
-            t + gcdWidth <= maxCloseTime;
-            t += gcdWidth
+            t + lcmWidth <= maxCloseTime;
+            t += lcmWidth
         ) {
             const windowStart = t;
-            const windowEnd = t + gcdWidth;
+            const windowEnd = t + lcmWidth;
 
             const eventsLeft = this.collectEventsInWindow(windowLeft, windowStart, windowEnd);
             const eventsRight = this.collectEventsInWindow(windowRight, windowStart, windowEnd);
@@ -89,10 +85,7 @@ export class ChunkCreationOperator {
                 const filtered = [...container.elements].filter((quad: Quad) => {
                     if (quad.object.termType !== "Literal") return false;
                     const timestamp = Number(quad.object.value);
-
-                    // Normalize timestamp relative to result_window_start
                     const relativeTimestamp = timestamp - this.result_window_start;
-
                     return relativeTimestamp >= start && relativeTimestamp < end;
                 });
                 collected.push(...filtered);
@@ -101,7 +94,6 @@ export class ChunkCreationOperator {
 
         return collected;
     }
-
 
     private mergeEvents(a: Quad[], b: Quad[]): QuadContainer {
         a = this.removeGraphFromQuads(a);
@@ -113,9 +105,6 @@ export class ChunkCreationOperator {
     }
 
     private removeGraphFromQuads(quads: Quad[]): Quad[] {
-        return quads.map(quad => {
-            // Create a new quad without the graph part (defaults to the default graph)
-            return new Quad(quad.subject, quad.predicate, quad.object);
-        });
+        return quads.map(quad => new Quad(quad.subject, quad.predicate, quad.object));
     }
 }

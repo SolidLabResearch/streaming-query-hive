@@ -43,7 +43,7 @@ export class R2ROperator {
         for (const elem of this.staticData) {
             store.addQuad(elem);
         }
-
+        
         const myEngine = new QueryEngine();
         return await myEngine.queryBindings(this.query, {
             sources: [store],

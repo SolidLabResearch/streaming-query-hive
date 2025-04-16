@@ -27,6 +27,7 @@
         "typescript": "^4.9.4"
     },
     "dependencies": {
+        "@comunica/query-sparql": "^4.1.0",
         "n3": "^1.24.2",
         "sparqljs": "^3.7.3"
     }

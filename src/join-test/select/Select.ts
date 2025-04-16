@@ -5,6 +5,7 @@ import { lcm } from "../../util/Util";
 import { DataFactory, Quad } from "n3";
 import { TemporalJoinOperator } from "../../operators/TemporalJoinOperator";
 import { ChunkCreationOperator } from "../../operators/ChunkCreationOperator";
+import { R2ROperator } from "../../operators/r2r";
 const { namedNode, literal, defaultGraph, quad } = DataFactory;
 
 const selectQueryOne = `
@@ -84,18 +85,36 @@ async function joinStreams() {
   const chunkCreationOperator = new ChunkCreationOperator(0, "width-and-slide");
   const joinedResults = chunkCreationOperator.temporalJoin(streamA, streamB);
 
-  console.log(`Joined Results: ${joinedResults.length}`);
-
-
+  // const r2rOperator = new R2ROperator(`select (AVG(?o) as ?avg) where { ?s ?p ?o. }`);
+  const r2rOperator = new R2ROperator(`select * where { ?s ?p ?o. }`);
   for (const [window, quadContainer] of joinedResults) {
     console.log(`Window: ${window.open} - ${window.close}`);
     console.log(`Stream: ${quadContainer.elements.size}`);
-    for (let quad of quadContainer.elements) {
-      console.log(`Quad: ${quad.subject.value} ${quad.predicate.value} ${quad.object.value} ${quad.graph.value}`);
-    }
-  }
 
+    let evaluation = await r2rOperator.execute(quadContainer)
+
+    evaluation.on('data', (bindings: any) => {
+      console.log(`Bindings: ${bindings.toString()} - window: ${window.open} - ${window.close}`);
+    });
+    evaluation.on('end', () => {
+      console.log('Evaluation ended');
+    }
+    );
+
+    evaluation.on('error', (error: any) => {
+      console.error('Error:', error);
+    });
+    evaluation.on('finish', () => {
+      console.log('Finished');
+    }
+
+    );
+
+
+  }
 }
+
+
 function generate_data(num_events: number, csparqlWindow: CSPARQLWindow) {
   for (let i = 0; i < num_events; i++) {
     const stream_element = quad(
@@ -106,9 +125,6 @@ function generate_data(num_events: number, csparqlWindow: CSPARQLWindow) {
       namedNode('http://rsp.js/test_graph' + csparqlWindow.name),
     );
     csparqlWindow.add(stream_element, i);
-    console.log('Generated timestamp:', Date.now());
-    console.log('Stream element:', stream_element);
-
   }
 }
 
