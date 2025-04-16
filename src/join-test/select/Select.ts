@@ -81,11 +81,19 @@ async function joinStreams() {
   // const joinedResults = temporalJoinOperator.temporalJoin(streamA, streamB);
   // console.log(joinedResults);
 
-  const chunkCreationOperator = new ChunkCreationOperator(0);
+  const chunkCreationOperator = new ChunkCreationOperator(0, "width-and-slide");
   const joinedResults = chunkCreationOperator.temporalJoin(streamA, streamB);
 
-  console.log(joinedResults);
-  
+  console.log(`Joined Results: ${joinedResults.length}`);
+
+
+  for (const [window, quadContainer] of joinedResults) {
+    console.log(`Window: ${window.open} - ${window.close}`);
+    console.log(`Stream: ${quadContainer.elements.size}`);
+    for (let quad of quadContainer.elements) {
+      console.log(`Quad: ${quad.subject.value} ${quad.predicate.value} ${quad.object.value} ${quad.graph.value}`);
+    }
+  }
 
 }
 function generate_data(num_events: number, csparqlWindow: CSPARQLWindow) {
@@ -93,10 +101,14 @@ function generate_data(num_events: number, csparqlWindow: CSPARQLWindow) {
     const stream_element = quad(
       namedNode('https://rsp.js/test_subject_' + i),
       namedNode('http://rsp.js/test_property'),
-      namedNode('http://rsp.js/test_object'),
-      defaultGraph(),
+      // literal(Date.now().toString()),
+      literal(i),
+      namedNode('http://rsp.js/test_graph' + csparqlWindow.name),
     );
     csparqlWindow.add(stream_element, i);
+    console.log('Generated timestamp:', Date.now());
+    console.log('Stream element:', stream_element);
+
   }
 }
 
