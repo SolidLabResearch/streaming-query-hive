@@ -1,6 +1,6 @@
 # Stream Hive
 
-> Combining and Aggregating RDF Streams to provide actionable insights. 
+> Combining Multiple Streaming Queries to provide actionable insights. 
 
 
 <p align="center">
