@@ -1,4 +1,4 @@
-# Stream Query Hive
+# Streaming Query Hive
 
 > Combining Multiple Streaming Queries to provide actionable insights. 
 
@@ -20,4 +20,4 @@ This code is copyrighted by [Ghent University - imec](https://www.ugent.be/ea/id
 
 ## Contact
 
-For any questions, please contact [Kush](mailto:kushbisen@proton.me) or create an issue in the repository [here](https://github.com/SolidLabResearch/stream-hive/issues). 
+For any questions, please contact [Kush](mailto:kushbisen@proton.me) or create an issue in the repository [here](https://github.com/SolidLabResearch/streaming-query-hive/issues). 
