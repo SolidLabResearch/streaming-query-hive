@@ -1,11 +1,6 @@
-# Stream Hive
+# Stream Query Hive
 
 > Combining Multiple Streaming Queries to provide actionable insights. 
-
-
-<p align="center">
-  <img src="Stream-Hive.png" alt="StreamHive" width="300"/>
-</p>
 
 ## Linting
 
