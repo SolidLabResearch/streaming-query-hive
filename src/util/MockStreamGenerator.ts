@@ -4,13 +4,25 @@ const N3 = require('n3');
 const { DataFactory } = N3;
 const { namedNode, literal, defaultGraph, quad } = DataFactory;
 
+/**
+ *
+ */
 export class MockStreamGenerator {
 
     private window: CSPARQLWindow;
+    /**
+     *
+     * @param window
+     */
     constructor(window: CSPARQLWindow) {
         this.window = window;
     }
 
+    /**
+     *
+     * @param number_of_events
+     * @param window
+     */
     public generateMockStream(number_of_events: number, window: CSPARQLWindow): void {
         for (let i = 0; i < number_of_events; i++) {
             const stream_element = quad(

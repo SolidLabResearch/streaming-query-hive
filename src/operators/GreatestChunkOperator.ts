@@ -6,26 +6,48 @@ type Window = {
     close: number;
 };
 
+/**
+ *
+ * @param a
+ * @param b
+ */
 function lcm(a: number, b: number): number {
     const gcd = (x: number, y: number): number => y === 0 ? x : gcd(y, x % y);
     return Math.abs(a * b) / gcd(a, b);
 }
 
+/**
+ *
+ * @param values
+ */
 function findLCM(values: number[]): number {
     return values.reduce((acc, val) => lcm(acc, val));
 }
 
 type JoinGranularity = "width-only" | "width-and-slide";
 
+/**
+ *
+ */
 export class GreatestChunkOperator {
     private result_window_start: number;
     private granularity: JoinGranularity;
 
+    /**
+     *
+     * @param t0
+     * @param granularity
+     */
     constructor(t0: number, granularity: JoinGranularity = "width-only") {
         this.result_window_start = t0;
         this.granularity = granularity;
     }
 
+    /**
+     *
+     * @param windowLeft
+     * @param windowRight
+     */
     public temporalJoin(
         windowLeft: CSPARQLWindow,
         windowRight: CSPARQLWindow
@@ -76,6 +98,12 @@ export class GreatestChunkOperator {
         return joinedResults;
     }
 
+    /**
+     *
+     * @param window
+     * @param start
+     * @param end
+     */
     private collectEventsInWindow(window: CSPARQLWindow, start: number, end: number): Quad[] {
         const collected: Quad[] = [];
 
@@ -95,6 +123,11 @@ export class GreatestChunkOperator {
         return collected;
     }
 
+    /**
+     *
+     * @param a
+     * @param b
+     */
     private mergeEvents(a: Quad[], b: Quad[]): QuadContainer {
         a = this.removeGraphFromQuads(a);
         b = this.removeGraphFromQuads(b);
@@ -104,6 +137,10 @@ export class GreatestChunkOperator {
         return mergedContainer;
     }
 
+    /**
+     *
+     * @param quads
+     */
     private removeGraphFromQuads(quads: Quad[]): Quad[] {
         return quads.map(quad => new Quad(quad.subject, quad.predicate, quad.object));
     }

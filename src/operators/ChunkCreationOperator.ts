@@ -6,6 +6,11 @@ type Window = {
     close: number;
 };
 
+/**
+ *
+ * @param a
+ * @param b
+ */
 function gcd(a: number, b: number): number {
     while (b !== 0) {
         const temp = b;
@@ -15,21 +20,38 @@ function gcd(a: number, b: number): number {
     return a;
 }
 
+/**
+ *
+ * @param values
+ */
 function findGCD(values: number[]): number {
     return values.reduce((acc, val) => gcd(acc, val));
 }
 
 type JoinGranularity = "width-only" | "width-and-slide";
 
+/**
+ *
+ */
 export class ChunkCreationOperator {
     private result_window_start: number;
     private granularity: JoinGranularity;
 
+    /**
+     *
+     * @param t0
+     * @param granularity
+     */
     constructor(t0: number, granularity: JoinGranularity = "width-only") {
         this.result_window_start = t0;
         this.granularity = granularity;
     }
 
+    /**
+     *
+     * @param windowLeft
+     * @param windowRight
+     */
     public temporalJoin(
         windowLeft: CSPARQLWindow,
         windowRight: CSPARQLWindow
@@ -80,6 +102,12 @@ export class ChunkCreationOperator {
         return joinedResults;
     }
 
+    /**
+     *
+     * @param window
+     * @param start
+     * @param end
+     */
     private collectEventsInWindow(window: CSPARQLWindow, start: number, end: number): Quad[] {
         const collected: Quad[] = [];
 
@@ -103,6 +131,11 @@ export class ChunkCreationOperator {
     }
 
 
+    /**
+     *
+     * @param a
+     * @param b
+     */
     private mergeEvents(a: Quad[], b: Quad[]): QuadContainer {
         a = this.removeGraphFromQuads(a);
         b = this.removeGraphFromQuads(b);
@@ -112,6 +145,10 @@ export class ChunkCreationOperator {
         return mergedContainer;
     }
 
+    /**
+     *
+     * @param quads
+     */
     private removeGraphFromQuads(quads: Quad[]): Quad[] {
         return quads.map(quad => {
             // Create a new quad without the graph part (defaults to the default graph)

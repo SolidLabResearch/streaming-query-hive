@@ -27,6 +27,8 @@ The Streaming Queries utilized in the architecture are described in the RSP-QL q
 
 The MQTT broker can be easily changed with another broker, such as RabbitMQ or Kafka, in the future. 
 
+The resultant query results for the parent query can be streamed to a different MQTT topic, or can be stored in a database for further analysis. Moreover, the results can be reasoned over using a reasoning engine such as EYE-JS[[6](#footnote-6)]]. The reasoning engine can be used to infer new knowledge from the query results, and can be used to provide actionable insights from the data.
+
 ## License
 
 This code is copyrighted by [Ghent University - imec](https://www.ugent.be/ea/idlab/en) and released under the [MIT Licence](./LICENCE) 
@@ -46,3 +48,5 @@ For any questions, please contact [Kush](mailto:kushbisen@proton.me) or create a
 [4]: <a href="https://github.com/SolidLabResearch/rspql-containment-checker"> RSP-QL Containment Checker </a>
 
 [5]: <a href="https://github.com/mirkospasic/SpeCS"> SPeCS Solver </a>
+
+[6]: <a href="https://github.com/eyereasoner/eye-js"> EYE-JS </a>

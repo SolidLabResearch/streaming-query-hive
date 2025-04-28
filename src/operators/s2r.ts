@@ -67,6 +67,9 @@ export class WindowInstance {
         return this.open == other_window.open && this.close == other_window.close;
     }
 
+    /**
+     *
+     */
     set_triggered() {
         this.has_triggered = true;
     }
@@ -193,14 +196,19 @@ export class CSPARQLWindow {
      * @returns {void} - The function does not return anything.
      */
 
+    /**
+     *
+     * @param event
+     * @param timestamp
+     */
     add(event: Quad, timestamp: number): void {
         this.logger.info(`adding_event_to_the_window`, `CSPARQLWindow`);
         console.debug(`Adding [" + ${event} + "] at time : ${timestamp} and watermark ${this.current_watermark}`);
-        let t_e = timestamp;
-        let to_evict = new Set<WindowInstance>();
+        const t_e = timestamp;
+        const to_evict = new Set<WindowInstance>();
         if (this.time > timestamp) {
             this.logger.info(`out_of_order_event_received`, `CSPARQLWindow`);
-            let event_latency = this.time - timestamp;
+            const event_latency = this.time - timestamp;
             this.logger.info(`Event Latency : ${event_latency}`, `CSPARQLWindow`);
             // Out of order event handling
             console.error(`The event is late and has arrived out of order at time ${timestamp}`);
@@ -213,9 +221,9 @@ export class CSPARQLWindow {
             else if (t_e - this.time <= this.max_delay) {
                 this.logger.info(`out_of_order_event_within_delay`, `CSPARQLWindow`);
                 // The event is late but within the allowed delay, so we will add it to the specific window instance.
-                for (let w of this.active_windows.keys()) {
+                for (const w of this.active_windows.keys()) {
                     if (w.open <= t_e && t_e < w.close) {
-                        let temp_window = this.active_windows.get(w);
+                        const temp_window = this.active_windows.get(w);
                         if (temp_window) {
                             // TODO: log this for when the event is added to the window and for the latency calculation
                             this.logger.info(`adding_out_of_order_event ${event.subject.value} to the window ${this.name} with bounds ${w.getDefinition()} at time ${timestamp}`, `CSPARQLWindow`);
@@ -233,11 +241,11 @@ export class CSPARQLWindow {
             this.logger.info(`in_order_event_received`, `CSPARQLWindow`);
             // In order event handling
             this.scope(t_e);
-            for (let w of this.active_windows.keys()) {
+            for (const w of this.active_windows.keys()) {
                 console.debug(`Processing Window ${w.getDefinition()} for the event ${event} at time ${timestamp}`);
                 if (w.open <= t_e && t_e < w.close) {
                     console.debug(`Adding the event ${event} to the window ${w.getDefinition()} at time ${timestamp}`);
-                    let window_to_add = this.active_windows.get(w);
+                    const window_to_add = this.active_windows.get(w);
                     if (window_to_add) {
                         this.logger.info(`adding_in_order_event ${event.subject.value} to the window ${this.name} with bounds ${w.getDefinition()} at time ${timestamp}`, `CSPARQLWindow`);
                         window_to_add.add(event, t_e);
@@ -253,6 +261,10 @@ export class CSPARQLWindow {
         }
     }
 
+    /**
+     *
+     * @param timestamp
+     */
     if_event_late(timestamp: number) {
         return this.time > timestamp;
     }
@@ -263,6 +275,11 @@ export class CSPARQLWindow {
      * @returns {void} - The function does not return anything.
      */
 
+    /**
+     *
+     * @param watermark
+     * @param timestamp
+     */
     trigger_window_content(watermark: number, timestamp: number): void {
         let max_window: WindowInstance | null = null;
         let max_time = 0;
@@ -305,6 +322,10 @@ export class CSPARQLWindow {
     }
 
     // Helper to find the matching instance in the Map
+    /**
+     *
+     * @param target
+     */
     private findWindowInstance(target: WindowInstance): WindowInstance | undefined {
         for (const window of this.active_windows.keys()) {
             if (window.is_same(target)) {
@@ -393,6 +414,10 @@ export class CSPARQLWindow {
         this.time = t;
     }
 
+    /**
+     *
+     * @param delay
+     */
     set_max_delay(delay: number) {
         this.max_delay = delay;
     }

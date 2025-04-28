@@ -2,7 +2,15 @@ import { CSPARQLWindow, QuadContainer, WindowInstance } from "./s2r";
 // @ts-ignore
 import { Quad } from "n3";
 
+/**
+ *
+ */
 export class MergeWindowOperator {
+    /**
+     *
+     * @param windowLeft
+     * @param windowRight
+     */
     public mergeJoin(windowLeft: CSPARQLWindow, windowRight: CSPARQLWindow): [WindowInstance, QuadContainer][] {
 
         const joinedResults: [WindowInstance, QuadContainer][] = [];
@@ -27,10 +35,20 @@ export class MergeWindowOperator {
         return joinedResults
     }
 
+    /**
+     *
+     * @param windowOne
+     * @param windowTwo
+     */
     private windowsOverlap(windowOne: WindowInstance, windowTwo: WindowInstance): boolean {
         return windowOne.open < windowTwo.close && windowTwo.open < windowOne.close;
     }
 
+    /**
+     *
+     * @param quadContainerOne
+     * @param quadContainerTwo
+     */
     private mergeQuadContainers(quadContainerOne: QuadContainer, quadContainerTwo: QuadContainer): any {
         const allQuads = new Set<Quad>();
 

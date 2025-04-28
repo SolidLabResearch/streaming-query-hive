@@ -73,6 +73,9 @@ WHERE {
 `;
 
 
+/**
+ *
+ */
 async function joinStreams() {
   const parser = new RSPQLParser();
   const parsedSubQuery = parser.parse(selectQueryOne);
@@ -117,7 +120,7 @@ async function joinStreams() {
   const r2rOperator = new R2ROperator(`select (AVG(?o) as ?avg) where { ?s ?p ?o. }`);
   for (const [window, quadContainer] of joinedResults) {
 
-    let evaluation = await r2rOperator.execute(quadContainer)
+    const evaluation = await r2rOperator.execute(quadContainer)
 
     evaluation.on('data', (bindings: any) => {
       console.log(`Bindings: ${bindings.toString()} - window: ${window.open} - ${window.close}`);
@@ -130,6 +133,11 @@ async function joinStreams() {
 }
 
 
+/**
+ *
+ * @param num_events
+ * @param csparqlWindow
+ */
 function generate_data(num_events: number, csparqlWindow: CSPARQLWindow) {
   for (let i = 0; i < num_events; i++) {
     const stream_element = quad(

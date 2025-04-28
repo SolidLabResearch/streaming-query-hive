@@ -1,6 +1,14 @@
 import { CSPARQLWindow, Event, QuadContainer, WindowInstance } from "./s2r";
 
+/**
+ *
+ */
 export class CrossJoinOperator {
+    /**
+     *
+     * @param windowOne
+     * @param windowTwo
+     */
     private crossJoin(windowOne: CSPARQLWindow, windowTwo: CSPARQLWindow): any {
         const exportName = `window-join-${windowOne.name}-${windowTwo.name}`;
 
@@ -41,6 +49,11 @@ export class CrossJoinOperator {
         }
     }
 
+    /**
+     *
+     * @param windowOne
+     * @param windowTwo
+     */
     private windowsOverlap(windowOne: WindowInstance, windowTwo: WindowInstance): boolean {
         return !(windowOne.close <= windowTwo.open || windowTwo.close <= windowOne.open);
     }

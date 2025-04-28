@@ -7,6 +7,9 @@ type Window = {
     close: number;
 
 }
+/**
+ *
+ */
 export class TemporalJoinOperator {
 
     private result_window_slide: number;
@@ -14,12 +17,23 @@ export class TemporalJoinOperator {
     private result_window_start: number;
 
 
+    /**
+     *
+     * @param slide
+     * @param size
+     * @param t0
+     */
     constructor(slide: number, size: number, t0: number) {
         this.result_window_slide = slide;
         this.result_window_size = size;
         this.result_window_start = t0;
 
     }
+    /**
+     *
+     * @param windowLeft
+     * @param windowRight
+     */
     public temporalJoin(windowLeft: CSPARQLWindow, windowRight: CSPARQLWindow): [Window, QuadContainer][] {
         const joinedResults: [Window, QuadContainer][] = [];
     
@@ -49,6 +63,12 @@ export class TemporalJoinOperator {
     }
     
 
+    /**
+     *
+     * @param window
+     * @param start
+     * @param end
+     */
     private collectEventsInWindow(window: CSPARQLWindow, start: number, end: number): Quad[] {
         const collected: Quad[] = [];
 
@@ -63,6 +83,11 @@ export class TemporalJoinOperator {
     }
 
 
+    /**
+     *
+     * @param a
+     * @param b
+     */
     private mergeEvents(a: Quad[], b: Quad[]): any {
         const set = new Set<Quad>([...a, ...b]);
         return {
