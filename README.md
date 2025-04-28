@@ -27,7 +27,7 @@ The Streaming Queries utilized in the architecture are described in the RSP-QL q
 
 The MQTT broker can be easily changed with another broker, such as RabbitMQ or Kafka, in the future. 
 
-The resultant query results for the parent query can be streamed to a different MQTT topic, or can be stored in a database for further analysis. Moreover, the results can be reasoned over using a reasoning engine such as EYE-JS[[6](#footnote-6)]]. The reasoning engine can be used to infer new knowledge from the query results, and can be used to provide actionable insights from the data.
+The resultant query results for the parent query can be streamed to a different MQTT topic, or can be stored in a database for further analysis. Moreover, the results can be reasoned over using a reasoning engine such as EYE-JS[[6](#footnote-6)]. The reasoning engine can be used to infer new knowledge from the query results, and can be used to provide actionable insights from the data.
 
 ## License
 
