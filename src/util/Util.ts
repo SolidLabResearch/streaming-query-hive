@@ -1,3 +1,13 @@
+
+import { DataFactory, Store, Writer } from "n3";
+import { ParseOptions } from "rdf-parse/lib/RdfParser";
+import { Readable } from "stream";
+import { createHash } from 'crypto'
+
+
+const rdfParser = require("rdf-parse").default;
+const storeStream = require("rdf-store-stream").storeStream;
+const streamifyString = require('streamify-string');
 import { QuadContainer } from "../operators/s2r";
 
 
@@ -24,3 +34,26 @@ function gcd(a: number, b: number): number {
 }
 
 export type JoinFunction = (a: QuadContainer, b: QuadContainer) => QuadContainer;
+
+
+export async function turtleStringToStore(text: string, baseIRI?: string): Promise<Store> {
+    return await stringToStore(text, { contentType: 'text/turtle', baseIRI });
+}
+
+export function storeToString(store: Store): string {
+    const writer = new Writer();
+    return writer.quadsToString(store.getQuads(null, null, null, null));
+}
+
+
+export async function stringToStore(text: string, options: ParseOptions): Promise<Store> {
+    const textStream = streamifyString(text);
+    const quadStream = rdfParser.parse(textStream, options);
+    return await storeStream(quadStream);
+}
+export function hash_string_md5(input_string: string) {
+    input_string = input_string.replace(/\s/g, '');
+    const hash = createHash('md5');
+    hash.update(input_string);
+    return hash.digest('hex');
+}
