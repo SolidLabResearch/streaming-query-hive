@@ -105,3 +105,4 @@ dist
 
 # RDF Data
 streamer/data/rdfData
+src/streamer/data

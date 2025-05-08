@@ -12,5 +12,5 @@
     "declaration": true,
     "resolveJsonModule": true
   },
-  "include": ["./src", "streamer/src/publishing"]
+  "include": ["./src", "src/streamer/src/publishing"]
 }
