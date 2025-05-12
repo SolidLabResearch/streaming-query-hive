@@ -120,6 +120,7 @@ async function joinStreams() {
   const r2rOperator = new R2ROperator(`select (AVG(?o) as ?avg) where { ?s ?p ?o. }`);
   for (const [window, quadContainer] of joinedResults) {
 
+    
     const evaluation = await r2rOperator.execute(quadContainer)
 
     evaluation.on('data', (bindings: any) => {

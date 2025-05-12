@@ -1,4 +1,4 @@
-import { HTTPServer } from "./http-server/HTTPServer";
+import { HTTPServer } from "./services/server/HTTPServer";
 import * as bunyan from "bunyan";
 import * as fs from 'fs';
 import { program } from "commander";

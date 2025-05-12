@@ -27,9 +27,6 @@ export class RSPChildAgent {
             const mqtt_broker: string = this.returnMQTTBroker(stream_name);
             const rsp_client = mqtt.connect(mqtt_broker);
             const rsp_stream_object = this.rsp_engine.getStream(stream_name);
-            console.log(rsp_stream_object);
-            
-            console.log(rsp_stream_object);
             
             const topic = new URL(stream_name).pathname.slice(1);
 
@@ -133,7 +130,7 @@ export class RSPChildAgent {
     // Generate the aggregation event structure
     public generate_aggregation_event(data: any, timestamp: number) {
         return {
-            timestamp: new Date(timestamp).toISOString(), // Format the timestamp as an ISO string
+            timestamp: timestamp, // Format the timestamp as an ISO string
             data: data,  // Add additional fields as necessary
         };
     }
