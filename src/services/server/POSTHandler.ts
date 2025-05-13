@@ -52,8 +52,9 @@ export class POSTHandler {
         }
     }
 
-    private static async registerQueryAndAgent(parsedBody: any, response: ServerResponse, rspAgentRecord: any) {
-        if (!parsedBody.id || !parsedBody.rspql_query || !parsedBody.rstream_topic || !parsedBody.data_topic) {
+    private static async registerQueryAndAgent(parsedBody: any, response: ServerResponse, rspAgentRecord: any) {        
+        
+        if (!parsedBody.id || !parsedBody.rspql_query || !parsedBody.r2s_topic || !parsedBody.data_topic) {
             response.writeHead(400);
             response.end(JSON.stringify({
                 error: 'Missing Required Fields'

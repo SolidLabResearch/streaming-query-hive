@@ -1,6 +1,8 @@
 import { RSPEngine, RSPQLParser } from "rsp-js";
 import { EventEmitter } from "events";
+import { Parser } from "n3";
 const mqtt = require('mqtt');
+
 
 export class RSPParentAgent {
     public parent_query: string;
@@ -40,10 +42,14 @@ export class RSPParentAgent {
         rsp_client.on("message", async (topic: any, message: any) => {
             try {
                 const message_string = message.toString();
-                const topic_where_posted = topic;
-                console.log(topic_where_posted, message_string);
-                
+                const parser = new Parser();
+                let triples = parser.parse(JSON.parse(message_string));
+
+
+
+
             } catch (error) {
+                console.log(error);
 
             }
         })

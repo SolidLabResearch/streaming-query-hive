@@ -1,5 +1,6 @@
 const mqtt = require('mqtt');
 const { DataFactory } = require('n3');
+import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter } from "events";
 import { RDFStream, RSPEngine, RSPQLParser } from "rsp-js";
 import { hash_string_md5, turtleStringToStore } from "../../util/Util";
@@ -27,7 +28,7 @@ export class RSPChildAgent {
             const mqtt_broker: string = this.returnMQTTBroker(stream_name);
             const rsp_client = mqtt.connect(mqtt_broker);
             const rsp_stream_object = this.rsp_engine.getStream(stream_name);
-            
+
             const topic = new URL(stream_name).pathname.slice(1);
 
             // MQTT client connection and subscription
@@ -60,7 +61,7 @@ export class RSPChildAgent {
             // Handle connection errors
             rsp_client.on("error", (error: any) => {
                 console.log(error);
-            });chun
+            });
         }
     }
 
@@ -87,7 +88,7 @@ export class RSPChildAgent {
                     quad.predicate,
                     quad.object,
                     DataFactory.namedNode(stream_name)
-                );                
+                );
                 stream.add(quadWithGraph, timestamp);
             }
         });
@@ -99,9 +100,6 @@ export class RSPChildAgent {
         const rstream_publisher = mqtt.connect(mqtt_broker);
         const query_hash = hash_string_md5(this.child_query);
 
-        // Log the query hash for debugging
-        console.log("Query hash:", query_hash);
-
         // Listen for the "RStream" event and publish to MQTT
         this.rstream_emitter.on("RStream", async (object: any) => {
             if (!object || !object.bindings) {
@@ -110,7 +108,6 @@ export class RSPChildAgent {
             }
 
             const iterables = object.bindings.values();
-            console.log("Received RStream object:", iterables);
             // Loop through each iterable and publish the aggregated event to the MQTT broker
             for (const item of iterables) {
                 const aggregation_event_timestamp = new Date().getTime();
@@ -118,7 +115,6 @@ export class RSPChildAgent {
 
                 // Generate the aggregation event
                 const aggregation_event = this.generate_aggregation_event(data, aggregation_event_timestamp);
-                console.log("Generated aggregation event:", aggregation_event);
 
                 // Convert the aggregation event to a string and publish to the MQTT topic
                 const aggregation_object_string = JSON.stringify(aggregation_event);
@@ -129,9 +125,13 @@ export class RSPChildAgent {
 
     // Generate the aggregation event structure
     public generate_aggregation_event(data: any, timestamp: number) {
-        return {
-            timestamp: timestamp, // Format the timestamp as an ISO string
-            data: data,  // Add additional fields as necessary
-        };
+        const uuid_random = uuidv4();
+
+        let aggregation_event = `
+    <https://rsp.js/aggregation_event/${uuid_random}> <https://saref.etsi.org/core/hasTimestamp> "${timestamp}"^^<http://www.w3.org/2001/XMLSchema#long> .
+    <https://rsp.js/aggregation_event/${uuid_random}> <https://saref.etsi.org/core/hasValue> "${data}"^^<http://www.w3.org/2001/XMLSchema#float> .
+    `;
+        return aggregation_event.trim();
+
     }
 }

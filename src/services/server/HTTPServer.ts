@@ -5,7 +5,7 @@ import { POSTHandler } from "./POSTHandler";
 export type RSPAgentQuery = {
     id: string,
     rspql_query: string,
-    rstream_topic: string,
+    r2s_topic: string,
     data_topic: string
 }
 
@@ -15,7 +15,7 @@ export class HTTPServer {
     private readonly http_server: Server;
     public logger: any;
 
-    constructor(http_port: 8080, logger: any) {
+    constructor(http_port: number, logger: any) {
         this.http_server = createServer(this.request_handler.bind(this)).listen(http_port);
         this.logger = logger;
         this.logger.info(`HTTP Server started on port ${http_port}`);
