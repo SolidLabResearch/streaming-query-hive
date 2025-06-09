@@ -1,4 +1,4 @@
-import { CSPARQLWindow } from "../operators/s2r";
+import { CSPARQLWindow } from "../services/operators/s2r";
 const N3 = require('n3');
 
 const { DataFactory } = N3;

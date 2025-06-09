@@ -1,13 +1,25 @@
-import config from "../config/config.json"
+import { ContainmentChecker } from "rspql-containment-checker";
+import { QueryCombiner } from "hive-thought-rewriter"
+import { StreamingQueryChunkAggregatorOperator } from "./operators/StreamingQueryChunkAggregatorOperator";
 
+/**
+ */
 export class BeeWorker {
 
-    private query: string | undefined;
+    private query: string;
     private r2s_topic: string | undefined;
     private interval: NodeJS.Timeout | null = null;
+    private containmentChecker: ContainmentChecker;
+    private queryCombiner: QueryCombiner;
+    private streamingQueryChunkAggregatorOperator: StreamingQueryChunkAggregatorOperator;
 
+    /**
+     *
+     */
     constructor() {
-
+        this.containmentChecker = new ContainmentChecker();
+        this.queryCombiner = new QueryCombiner();
+        this.streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAggregatorOperator();
         const query = process.env.QUERY;
         const r2s_topic = process.env.TOPIC;
 
@@ -22,6 +34,55 @@ export class BeeWorker {
         console.log(`Started a Bee Worker for the Query`);
     }
 
+    /**
+     *
+     */
+    async processAgentStreams() {
+        console.log(`Finding if there are existing queries with RSP Agents being processed which are cobntained in the query of the Bee Worker`);
+        // Fetch the existing queries from the server
+        const fetchLocation = "http://localhost:8080/fetchQueries";
+        const executingQueries = await this.fetchExistingQueries(fetchLocation);
+        // Check for containment of the existing queries with the new query
+        const containedQueries = await this.findContainedQueries(executingQueries, this.query);
+        if (containedQueries) {
+            // Check which queries can be reused
+            // Rewriting and combining the queries
+            for (const [id, rspql_query] of containedQueries) {
+                this.queryCombiner.addQuery(rspql_query);
+            }
+            const combined_query = this.queryCombiner.combine();
+            const combined_query_string = combined_query.toString();
+
+            // Now we have a combined query that can be used to process the streams
+            // Time to do a completeness and soundness check
+
+            const is_complete = await this.completenessCheck(combined_query_string, this.query);
+            const is_sound = await this.soundnessCheck(combined_query_string, this.query);
+            if (is_complete && is_sound) {
+                console.log('The combined query is complete and sound');
+                // Handle the case where the combined query is complete and sound
+                // This means that the Bee Worker can start processing the combined query
+                // and reuse the existing queries from the RSP Agents
+                console.log(`Combined Query: ${combined_query_string}`);
+            }
+            else {
+                console.log('There was partial containment of the queries, however the combined query is not complete or sound');
+                // Handle the case where the combined query is not complete or sound
+            }
+
+        }
+        else {
+            console.log(`There are no existing queries by the RSP Agents that are contained in the query of the Bee Worker`);
+            // Handle the case where there are no contained queries 
+            // Therefore the Bee Worker can start processing the entire query by itself rather than reusing the existing queries
+        }
+    }
+
+
+    /**
+     *
+     * @param fetchLocation
+     */
     async fetchExistingQueries(fetchLocation: string) {
         const response = await fetch(fetchLocation, {
             'method': 'GET',
@@ -32,14 +93,106 @@ export class BeeWorker {
     }
 
 
+    /**
+     *
+     */
     async validateQueryContainment() {
         // First Rewrite the SubQueries
-        
+        console.log(`Rewriting the different subQueries to check for containment`);
+        if (!this.query) {
+            console.error(`Query is not defined`);
+            return;
+        }
+        const query_to_check = this.query;
+        console.log(`Query to check for containment: ${query_to_check}`);
+
+        this.rewriteSubQueries();
+
         // Check for Completeness and Soundness
+
+
+    }
+
+    /**
+     *
+     */
+    async rewriteSubQueries() {
+        console.log(`Rewriting SubQueries for the Query: ${this.query}`);
+
+
     }
 
 
-    async findContainedQueries(executingQueries: string, query: string) {
+    /**
+     *
+     * @param queryOne
+     * @param queryTwo
+     */
+    async completenessCheck(queryOne: string, queryTwo: string) {
+        return true; // Placeholder for completeness check logic
+        // Uncomment the following lines when the containment checker is implemented
+        // console.log(`Completeness Check between ${queryOne} and ${queryTwo}`);
+        // const is_complete = await this.containmentChecker.checkContainment(queryTwo, queryOne);
+        // if (is_complete) {
+        //     console.log(`Completeness Check passed`);
+        //     return true;
+        // } else {
+        //     console.log(`Completeness Check failed`);
+        //     return false;
+        // }
+    }
+
+    /**
+     *
+     * @param queryOne
+     * @param queryTwo
+     */
+    async soundnessCheck(queryOne: string, queryTwo: string) {
+        return true; // Placeholder for soundness check logic
+        // Uncomment the following lines when the containment checker is implemented
+        // console.log(`Soundness Check between ${queryOne} and ${queryTwo}`);
+        // const is_sound = await this.containmentChecker.checkContainment(queryOne, queryTwo);
+        // if (is_sound) {
+        //     console.log(`Soundness Check passed`);
+        //     return true;
+        // } else {
+        //     console.log(`Soundness Check failed`);
+        //     return false;
+        // }
+    }
+
+    /**
+     *
+     */
+    async checkWindowParametersForQueries() {
+        // Check for Window Parameters of each Query with the new Query
+        const existingQueries = await this.fetchExistingQueries("http://localhost:8080/fetchQueries");
+        console.log(`Existing Queries: ${existingQueries}`);
+        const containedQueries = await this.findContainedQueries(existingQueries, this.query);
+
+        if (containedQueries) {
+            // Handle contained queries
+        }
+    }
+
+
+    /**
+     *
+     * @param executingQueries
+     * @param query
+     */
+    async findContainedQueries(executingQueries: string, query: string | undefined) {
+        if (!query) {
+            console.error(`Query is not defined`);
+            return;
+        }
+        if (!executingQueries) {
+            console.error(`Executing Queries are not defined`);
+            return;
+        }
+        console.log(`Finding Contained Queries`);
+        console.log(`Executing Queries: ${executingQueries}`);
+        console.log(`Query: ${query}`);
         const contained_queries: Map<string, string> = new Map();
         const executing_queries = JSON.parse(executingQueries);
 
@@ -50,24 +203,9 @@ export class BeeWorker {
 
         for (const { id, rspql_query } of queryList) {
             console.log(`Checking Query Containment of Existing Queries to the Newly Registered Query`);
+            const containment_check = await this.containmentChecker.checkContainment(id, rspql_query);
 
-            const containment_check_body = {
-                "subQuery": rspql_query,
-                "superQuery": query
-            }
-
-            const response = await fetch(config["containment-checker"], {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(containment_check_body)
-            });
-
-            const containment_check_response = await response.json();
-
-
-            if (containment_check_response.containment) {
+            if (containment_check) {
                 contained_queries.set(id, rspql_query);
                 console.log(`SubQuery with ${id} is contained in the Query`);
             }
@@ -75,11 +213,13 @@ export class BeeWorker {
                 console.log(`SubQuery with ${id} is not contained in the Query`);
             }
         }
-
         return contained_queries;
     }
 
 
+    /**
+     *
+     */
     stop() {
 
     }

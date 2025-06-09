@@ -1,16 +1,23 @@
 import { fork, ChildProcess } from "child_process";
 import * as path from "path";
 
+/**
+ * 
+ */
 export class HiveQueryBee {
 
     private process: ChildProcess;
-    private queryHash: string;
     private query: string
 
-    constructor(query: string, topic: string, queryHash: string) {
+    /**
+     *
+     * @param query
+     * @param topic
+     * @param queryHash
+     */
+    constructor(query: string, topic: string) {
         const beeWorkerPath = path.resolve(__dirname, "BeeWorker.js");
 
-        this.queryHash = queryHash;
         this.query = query;
         this.process = fork(beeWorkerPath, [], {
             env: {
@@ -29,6 +36,9 @@ export class HiveQueryBee {
     }
 
 
+    /**
+     *
+     */
     stop() {
         this.process.kill();
     }

@@ -1,9 +1,9 @@
 import { EventEmitter } from "events";
 // @ts-ignore
 import { Quad } from 'n3';
-import { Logger } from "../util/logger/Logger";
-import { LogLevel, LogDestination } from "../util/logger/LoggerEnum";
-import * as LOG_CONFIG from "../config/log_config.json";
+import { Logger } from "../../util/logger/Logger";
+import { LogLevel, LogDestination } from "../../util/logger/LoggerEnum";
+import * as LOG_CONFIG from "../../config/log_config.json";
 
 /* eslint-disable no-unused-vars */
 
