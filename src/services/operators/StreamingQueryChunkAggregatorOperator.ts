@@ -21,11 +21,9 @@ export class StreamingQueryChunkAggregatorOperator {
         this.subQueries = [];
         this.outputQuery = '';
         this.parser = new RSPQLParser();
-        this.chunkGCD = 0;
-        this.init();
-    }
+        this.chunkGCD = 0;    }
 
-    private async init() {
+    public async init() {
         await this.setMQTTTopicMap();
         console.log("StreamingQueryChunkAggregatorOperator initialized.");
         this.handleAggregation();
@@ -112,8 +110,6 @@ handleAggregation(): void {
 
 rsp_client.on("message", async (topic, message) => {
     const hash_subQuery = topic.split("/")[1];
-    if (!expectedSubQueries.has(hash_subQuery)) return;
-
     console.log(`Received message from ${topic}:`, message.toString());
     receivedSubQueries.add(hash_subQuery);
 

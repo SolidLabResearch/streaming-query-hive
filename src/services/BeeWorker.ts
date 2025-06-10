@@ -141,9 +141,9 @@ WHERE {
 }
     `;
             // this.streamingQueryChunkAggregatorOperator.setOutputQuery(combined_query_string);
-            this.streamingQueryChunkAggregatorOperator.setOutputQuery(registeredQuery);
-            this.streamingQueryChunkAggregatorOperator.handleAggregation();
-            // Handle the case where the combined query is complete and sound
+            this.streamingQueryChunkAggregatorOperator.setOutputQuery(registeredQuery);            // Handle the case where the combined query is complete and sound
+            this.streamingQueryChunkAggregatorOperator.init();
+
             // This means that the Bee Worker can start processing the combined query
             // and reuse the existing queries from the RSP Agents
             // console.log(`Combined Query: ${combined_query_string}`);
