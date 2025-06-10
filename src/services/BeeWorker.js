@@ -51,7 +51,6 @@ var BeeWorker = /** @class */ (function () {
         this.interval = null;
         this.containmentChecker = new rspql_containment_checker_1.ContainmentChecker();
         this.queryCombiner = new hive_thought_rewriter_1.QueryCombiner();
-        this.streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAggregatorOperator_1.StreamingQueryChunkAggregatorOperator();
         var query = process.env.QUERY;
         var r2s_topic = process.env.TOPIC;
         if (!query || !r2s_topic) {
@@ -61,8 +60,58 @@ var BeeWorker = /** @class */ (function () {
         this.query = query;
         this.r2s_topic = r2s_topic;
         console.log("Started a Bee Worker for the Query");
-        this.processAgentStreams();
+        // this.processAgentStreams();
+        this.process();
     }
+    BeeWorker.prototype.process = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var fetchLocation, executingQueries, rspql_queries, parsed_queries, _i, _a, _b, id, rspql_query, streamingQueryChunkAggregatorOperator, query1, query2;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        console.log("this.process() called with query: ".concat(this.query));
+                        fetchLocation = "http://localhost:8080/fetchQueries";
+                        return [4 /*yield*/, this.fetchExistingQueries(fetchLocation)];
+                    case 1:
+                        executingQueries = _c.sent();
+                        rspql_queries = [];
+                        console.log("Executing Queries: ".concat(executingQueries));
+                        parsed_queries = JSON.parse(executingQueries);
+                        if (!parsed_queries || Object.keys(parsed_queries).length === 0) {
+                            console.error("No executing queries found or the fetch operation failed.");
+                            return [2 /*return*/];
+                        }
+                        for (_i = 0, _a = Object.entries(parsed_queries); _i < _a.length; _i++) {
+                            _b = _a[_i], id = _b[0], rspql_query = _b[1];
+                            console.log("Found executing query with ID: ".concat(id));
+                            if (typeof rspql_query === "string") {
+                                rspql_queries.push(rspql_query);
+                                console.log("RSPQL Query: ".concat(rspql_query));
+                            }
+                            else {
+                                console.warn("Skipping non-string rspql_query for ID: ".concat(id));
+                            }
+                        }
+                        console.log("Executing Queries: ".concat(executingQueries));
+                        if (!executingQueries) {
+                            console.error("No executing queries found or the fetch operation failed.");
+                            return [2 /*return*/];
+                        }
+                        streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAggregatorOperator_1.StreamingQueryChunkAggregatorOperator(this.query);
+                        query1 = "\n            PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgX)\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 60000 STEP 60000]\nWHERE {\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .\n    }\n}\n    ";
+                        query2 = "\n                PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgY)\nFROM NAMED WINDOW :w2 ON STREAM mqtt_broker:accY [RANGE 60000 STEP 60000]\nWHERE {\n    WINDOW :w2 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .\n    }\n}";
+                        streamingQueryChunkAggregatorOperator.addSubQuery(query1);
+                        streamingQueryChunkAggregatorOperator.addSubQuery(query2);
+                        console.log("About to call init()");
+                        return [4 /*yield*/, streamingQueryChunkAggregatorOperator.init()];
+                    case 2:
+                        _c.sent();
+                        streamingQueryChunkAggregatorOperator.handleAggregation();
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
     /**
      *
      */
@@ -119,8 +168,8 @@ var BeeWorker = /** @class */ (function () {
                             console.log('The combined query is complete and sound');
                             registeredQuery = "\n                PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgX) (AVG(?o) AS ?avgY)\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 120000 STEP 30000]\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accY [RANGE 120000 STEP 30000]\nWHERE {\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .\n    }\n    UNION\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .\n    }\n}\n    ";
                             // this.streamingQueryChunkAggregatorOperator.setOutputQuery(combined_query_string);
-                            this.streamingQueryChunkAggregatorOperator.setOutputQuery(registeredQuery);
-                            // Handle the case where the combined query is complete and sound
+                            // streamingQueryChunkAggregatorOperator.setOutputQuery(registeredQuery);            // Handle the case where the combined query is complete and sound
+                            // this.streamingQueryChunkAggregatorOperator.init();
                             // This means that the Bee Worker can start processing the combined query
                             // and reuse the existing queries from the RSP Agents
                             // console.log(`Combined Query: ${combined_query_string}`);

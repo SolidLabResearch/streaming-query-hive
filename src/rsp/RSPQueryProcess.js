@@ -57,7 +57,7 @@ var rsp_js_1 = require("rsp-js");
 var mqtt = require('mqtt');
 var DataFactory = require('n3').DataFactory;
 var uuid_1 = require("uuid");
-var RSPQLParser_1 = require("../util/parser/RSPQLParser");
+var rsp_js_2 = require("rsp-js");
 var Util_1 = require("../util/Util");
 var RSPQueryProcess = /** @class */ (function () {
     function RSPQueryProcess(query, rstream_topic) {
@@ -65,7 +65,7 @@ var RSPQueryProcess = /** @class */ (function () {
         this.rstream_topic = rstream_topic;
         this.rsp_engine = new rsp_js_1.RSPEngine(query);
         this.rstream_emitter = this.rsp_engine.register();
-        this.rspql_parser = new RSPQLParser_1.RSPQLParser();
+        this.rspql_parser = new rsp_js_2.RSPQLParser();
         this.subscribeToResultStream();
     }
     RSPQueryProcess.prototype.stream_process = function () {
@@ -73,9 +73,16 @@ var RSPQueryProcess = /** @class */ (function () {
             var parsed_query, streams, _loop_1, this_1, _i, streams_1, stream;
             var _this = this;
             return __generator(this, function (_a) {
+                console.log("Processing query in RSPQueryProcess: ".concat(this.query));
+                if (!this.query || this.query.trim() === "") {
+                    console.error("Query is empty or undefined.");
+                    return [2 /*return*/];
+                }
                 parsed_query = this.rspql_parser.parse(this.query);
                 if (parsed_query) {
                     streams = __spreadArray([], parsed_query.s2r, true);
+                    console.log("Parsed query successfully. Found ".concat(streams.length, " streams."));
+                    console.log("The streams are: ".concat(JSON.stringify(streams)));
                     _loop_1 = function (stream) {
                         var stream_name = stream.stream_name;
                         var stream_url = new URL(stream_name);
@@ -83,6 +90,7 @@ var RSPQueryProcess = /** @class */ (function () {
                         var rsp_client = mqtt.connect(mqtt_broker);
                         var rsp_stream_object = this_1.rsp_engine.getStream(stream_name);
                         var topic = stream_url.pathname.slice(1);
+                        console.log("Connecting to MQTT broker at ".concat(mqtt_broker, " for stream ").concat(stream_name));
                         rsp_client.on("connect", function () {
                             console.log("Connected to MQTT broker");
                             rsp_client.subscribe(topic, function (err) {
@@ -100,10 +108,16 @@ var RSPQueryProcess = /** @class */ (function () {
                             return __generator(this, function (_b) {
                                 switch (_b.label) {
                                     case 0:
-                                        _b.trys.push([0, 5, , 6]);
+                                        if (!message || message.length === 0) {
+                                            console.error("Received empty message on topic ".concat(topic));
+                                            return [2 /*return*/];
+                                        }
+                                        _b.label = 1;
+                                    case 1:
+                                        _b.trys.push([1, 6, , 7]);
                                         message_string = message.toString();
                                         return [4 /*yield*/, (0, Util_1.turtleStringToStore)(message_string)];
-                                    case 1:
+                                    case 2:
                                         latest_event_store = _b.sent();
                                         timestamp = (_a = latest_event_store.getQuads(null, DataFactory.namedNode('https://saref.etsi.org/core/hasTimestamp'), null, null)[0]) === null || _a === void 0 ? void 0 : _a.object.value;
                                         if (!timestamp) {
@@ -111,20 +125,20 @@ var RSPQueryProcess = /** @class */ (function () {
                                             return [2 /*return*/];
                                         }
                                         timestamp_epoch = Date.parse(timestamp);
-                                        if (!rsp_stream_object) return [3 /*break*/, 3];
+                                        if (!rsp_stream_object) return [3 /*break*/, 4];
                                         return [4 /*yield*/, this.add_event_store_to_rsp_engine(latest_event_store, [rsp_stream_object], timestamp_epoch)];
-                                    case 2:
-                                        _b.sent();
-                                        return [3 /*break*/, 4];
                                     case 3:
+                                        _b.sent();
+                                        return [3 /*break*/, 5];
+                                    case 4:
                                         console.error("Stream object not found for stream ".concat(stream_name));
                                         return [2 /*return*/];
-                                    case 4: return [3 /*break*/, 6];
-                                    case 5:
+                                    case 5: return [3 /*break*/, 7];
+                                    case 6:
                                         error_1 = _b.sent();
                                         console.error("Error processing message for stream ".concat(stream_name, ":"), error_1);
                                         return [2 /*return*/];
-                                    case 6: return [2 /*return*/];
+                                    case 7: return [2 /*return*/];
                                 }
                             });
                         }); });
@@ -153,6 +167,11 @@ var RSPQueryProcess = /** @class */ (function () {
             var mqtt_broker, rstream_publisher;
             var _this = this;
             return __generator(this, function (_a) {
+                console.log("Subscribing to result stream: ".concat(this.rstream_topic));
+                if (!this.rstream_topic || this.rstream_topic.trim() === "") {
+                    console.error("RStream topic is empty or undefined.");
+                    return [2 /*return*/];
+                }
                 mqtt_broker = "mqtt://localhost:1883";
                 rstream_publisher = mqtt.connect(mqtt_broker);
                 this.rstream_emitter.on("RStream", function (object) { return __awaiter(_this, void 0, void 0, function () {
@@ -161,7 +180,8 @@ var RSPQueryProcess = /** @class */ (function () {
                     return __generator(this, function (_b) {
                         switch (_b.label) {
                             case 0:
-                                if (!object || object.bindings) {
+                                console.log("Received RStream object: ".concat(JSON.stringify(object)));
+                                if (!object || !object.bindings) {
                                     console.log("No bindings found in the RStream object.");
                                     return [2 /*return*/];
                                 }
@@ -177,9 +197,17 @@ var RSPQueryProcess = /** @class */ (function () {
                                 iterable = iterables_1_1.value;
                                 event_timestamp = new Date().getTime();
                                 data = iterable.value;
+                                console.log("Processing data: ".concat(data, " at timestamp: ").concat(event_timestamp));
                                 aggregation_event = this.generate_aggregation_event(data, event_timestamp);
                                 aggregation_object_string = JSON.stringify(aggregation_event);
-                                rstream_publisher.publish(this.rstream_topic, aggregation_object_string);
+                                rstream_publisher.publish(this.rstream_topic, aggregation_object_string, { retain: true }, function (err) {
+                                    if (err) {
+                                        console.error("Error publishing aggregation event: ".concat(err));
+                                    }
+                                    else {
+                                        console.log("Successfully published aggregation event: ".concat(aggregation_object_string));
+                                    }
+                                });
                                 console.log("Published aggregation event: ".concat(aggregation_object_string));
                                 _b.label = 4;
                             case 4: return [3 /*break*/, 2];

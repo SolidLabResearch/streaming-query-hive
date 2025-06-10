@@ -12,7 +12,6 @@ export class BeeWorker {
     private interval: NodeJS.Timeout | null = null;
     private containmentChecker: ContainmentChecker;
     private queryCombiner: QueryCombiner;
-    private streamingQueryChunkAggregatorOperator: StreamingQueryChunkAggregatorOperator;
 
     /**
      *
@@ -20,7 +19,6 @@ export class BeeWorker {
     constructor() {
         this.containmentChecker = new ContainmentChecker();
         this.queryCombiner = new QueryCombiner();
-        this.streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAgregatorOperator();
         const query = process.env.QUERY;
         const r2s_topic = process.env.TOPIC;
 
@@ -39,6 +37,8 @@ export class BeeWorker {
 
 
     async process() {
+        console.log(`this.process() called with query: ${this.query}`);
+        
         const fetchLocation = "http://localhost:8080/fetchQueries";
         const executingQueries = await this.fetchExistingQueries(fetchLocation);
         let rspql_queries: string[] = [];
@@ -63,9 +63,44 @@ export class BeeWorker {
             console.error(`No executing queries found or the fetch operation failed.`);
             return;
         }
+        const streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAggregatorOperator(this.query);
 
-        this.streamingQueryChunkAggregatorOperator.setOutputQuery(this.query);
-        this.streamingQueryChunkAggregatorOperator.handleAggregation();
+            const query1 = `
+            PREFIX mqtt_broker: <mqtt://localhost:1883/>
+    PREFIX saref: <https://saref.etsi.org/core/>
+PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
+PREFIX : <https://rsp.js> 
+REGISTER RStream <output> AS
+SELECT (AVG(?o) AS ?avgX)
+FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 60000 STEP 60000]
+WHERE {
+    WINDOW :w1 {
+        ?s saref:hasValue ?o .
+        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .
+    }
+}
+    `;
+    const query2 = `
+                PREFIX mqtt_broker: <mqtt://localhost:1883/>
+    PREFIX saref: <https://saref.etsi.org/core/>
+PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
+PREFIX : <https://rsp.js> 
+REGISTER RStream <output> AS
+SELECT (AVG(?o) AS ?avgY)
+FROM NAMED WINDOW :w2 ON STREAM mqtt_broker:accY [RANGE 60000 STEP 60000]
+WHERE {
+    WINDOW :w2 {
+        ?s saref:hasValue ?o .
+        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .
+    }
+}`;
+        streamingQueryChunkAggregatorOperator.addSubQuery(query1);
+        streamingQueryChunkAggregatorOperator.addSubQuery(query2);
+        console.log("About to call init()");
+
+        await streamingQueryChunkAggregatorOperator.init();
+
+        streamingQueryChunkAggregatorOperator.handleAggregation();
 
     }
 
@@ -141,8 +176,8 @@ WHERE {
 }
     `;
             // this.streamingQueryChunkAggregatorOperator.setOutputQuery(combined_query_string);
-            this.streamingQueryChunkAggregatorOperator.setOutputQuery(registeredQuery);            // Handle the case where the combined query is complete and sound
-            this.streamingQueryChunkAggregatorOperator.init();
+            // streamingQueryChunkAggregatorOperator.setOutputQuery(registeredQuery);            // Handle the case where the combined query is complete and sound
+            // this.streamingQueryChunkAggregatorOperator.init();
 
             // This means that the Bee Worker can start processing the combined query
             // and reuse the existing queries from the RSP Agents

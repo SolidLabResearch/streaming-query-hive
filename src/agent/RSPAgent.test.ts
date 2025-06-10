@@ -14,7 +14,7 @@ describe("RSPAgent", () => {
         const rstream_topic = "test_topic";
         const agent = new RSPAgent(query, rstream_topic);
         expect(agent.query).toBe(query);
-        expect(agent.rstream_topic).toBe(rstream_topic);
+        expect(agent.r2s_topic).toBe(rstream_topic);
     });
 
     test("should initialize RSPEngine", () => {

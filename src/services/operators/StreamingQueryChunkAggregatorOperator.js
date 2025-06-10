@@ -35,18 +35,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
 };
-var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
-    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
-        if (ar || !(i in from)) {
-            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
-            ar[i] = from[i];
-        }
-    }
-    return to.concat(ar || Array.prototype.slice.call(from));
-};
 exports.__esModule = true;
 exports.StreamingQueryChunkAggregatorOperator = void 0;
-var RSPQLParser_1 = require("../../util/parser/RSPQLParser");
+var rsp_js_1 = require("rsp-js");
 var hive_thought_rewriter_1 = require("hive-thought-rewriter");
 var RSPQueryProcess_1 = require("../../rsp/RSPQueryProcess");
 var Util_1 = require("../../util/Util");
@@ -58,112 +49,171 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
     /**
      *
      */
-    function StreamingQueryChunkAggregatorOperator() {
+    function StreamingQueryChunkAggregatorOperator(outputQuery) {
+        this.subQueryMQTTTopicMap = new Map();
         this.mqttBroker = 'mqtt://localhost:1883'; // Default MQTT broker URL, can be changed if needed
         this.subQueries = [];
-        this.outputQuery = '';
-        this.parser = new RSPQLParser_1.RSPQLParser();
-        this.queryMQTTTopicMap = new Map();
+        this.parser = new rsp_js_1.RSPQLParser();
         this.chunkGCD = 0;
+        this.outputQuery = outputQuery;
     }
+    StreamingQueryChunkAggregatorOperator.prototype.init = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        console.log("init() called");
+                        return [4 /*yield*/, this.setMQTTTopicMap()];
+                    case 1:
+                        _a.sent();
+                        console.log("StreamingQueryChunkAggregatorOperator initialized.");
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
+    StreamingQueryChunkAggregatorOperator.prototype.setMQTTTopicMap = function () {
+        return __awaiter(this, void 0, void 0, function () {
+            var response, data, _i, _a, _b, queryHash, mqttTopic;
+            return __generator(this, function (_c) {
+                switch (_c.label) {
+                    case 0:
+                        console.log("setMQTTTopicMap() called");
+                        this.queryMQTTTopicMap = new Map();
+                        console.log("MQTT Topic Map set for subqueries:", this.queryMQTTTopicMap);
+                        return [4 /*yield*/, fetch("http://localhost:8080/fetchQueries")];
+                    case 1:
+                        response = _c.sent();
+                        if (!response.ok) {
+                            console.error("Failed to fetch queries from the server.");
+                            return [2 /*return*/];
+                        }
+                        return [4 /*yield*/, response.json()];
+                    case 2:
+                        data = _c.sent();
+                        console.log("Fetched data from server:", data);
+                        for (_i = 0, _a = Object.entries(data); _i < _a.length; _i++) {
+                            _b = _a[_i], queryHash = _b[0], mqttTopic = _b[1];
+                            this.queryMQTTTopicMap.set(queryHash, mqttTopic);
+                            console.log("Subquery ".concat(queryHash, " mapped to MQTT Topic ").concat(mqttTopic));
+                        }
+                        return [2 /*return*/];
+                }
+            });
+        });
+    };
     /**
      *
      */
     StreamingQueryChunkAggregatorOperator.prototype.handleAggregation = function () {
-        var _this = this;
-        this.initializeSubQueryProcesses();
-        console.log("SubQuery Processes initialized for aggregation.");
-        if (this.subQueries.length === 0) {
-            console.error("No subqueries available for aggregation.");
-            return;
-        }
-        if (this.outputQuery === '') {
-            console.error("Output query is not set for aggregation.");
-            return;
-        }
-        if (this.chunkGCD <= 0) {
-            console.error("Chunk GCD is not valid for aggregation.");
-            return;
-        }
-        if (this.queryMQTTTopicMap.size === 0) {
-            console.error("No MQTT topics mapped for subqueries.");
-            return;
-        }
-        console.log("Starting aggregation of subqueries with GCD chunk size:", this.chunkGCD);
-        var outputQueryParsed = this.parser.parse(this.outputQuery);
-        if (!outputQueryParsed) {
-            console.error("Failed to parse output query: ".concat(this.outputQuery));
-            return;
-        }
-        var outputQueryWidth = outputQueryParsed.s2r[0].width;
-        var outputQuerySlide = outputQueryParsed.s2r[0].slide;
-        if (outputQueryWidth <= 0 || outputQuerySlide <= 0) {
-            console.error("Invalid width or slide in output query: ".concat(this.outputQuery));
-            return;
-        }
-        var rsp_client = mqtt_1["default"].connect(this.mqttBroker);
-        rsp_client.on("connect", function () {
-            console.log("Connected to MQTT broker at ".concat(_this.mqttBroker));
-            // Store partial results per hash_subQuery
-            var partialResults = new Map();
-            // Calculate the chunk size for the output query based on the GCD
-            var numbersOfChunksRequiredForOutputQuery = Math.ceil(outputQueryWidth / _this.chunkGCD);
-            // Set of expected subqueries with topics
-            var expectedSubQueries = new Set(_this.queryMQTTTopicMap.keys());
-            // Mao to hold the final full data for each subquery after the chunks are received
-            var finalResults = new Map();
-            var _loop_1 = function (hash_subQuery, mqttTopic) {
-                console.log("SubQuery ".concat(hash_subQuery, " is mapped to MQTT Topic ").concat(mqttTopic));
-                rsp_client.subscribe("chunked/".concat(hash_subQuery), function (err) {
-                    if (err) {
-                        console.error("Failed to subscribe to output query topic: chunked/".concat(hash_subQuery), err);
-                    }
-                    else {
-                        console.log("Subscribed to output query topic: chunked/".concat(hash_subQuery));
-                    }
-                });
-                rsp_client.on("message", function (topic, message) { return __awaiter(_this, void 0, void 0, function () {
-                    var hash_subQuery, payload, chunkArray, allCompleted, allResults, _i, _a, _b, subQueryHash, results;
-                    var _c;
-                    return __generator(this, function (_d) {
-                        switch (_d.label) {
-                            case 0:
-                                hash_subQuery = topic.split("/")[1];
-                                console.log("Received message for subquery ".concat(hash_subQuery, ":"), message.toString());
-                                payload = JSON.parse(message.toString());
-                                if (!partialResults.has(hash_subQuery)) {
-                                    partialResults.set(hash_subQuery, []);
-                                }
-                                (_c = partialResults.get(hash_subQuery)) === null || _c === void 0 ? void 0 : _c.push(payload);
-                                console.log("Partial results for subquery ".concat(hash_subQuery, ":"), partialResults.get(hash_subQuery));
-                                chunkArray = partialResults.get(hash_subQuery);
-                                if ((chunkArray === null || chunkArray === void 0 ? void 0 : chunkArray.length) === numbersOfChunksRequiredForOutputQuery) {
-                                    console.log("Most of the chunks are received for subquery ".concat(hash_subQuery, ". Processing aggregation..."));
-                                    finalResults.set(hash_subQuery, chunkArray);
-                                    partialResults["delete"](hash_subQuery);
-                                }
-                                allCompleted = __spreadArray([], expectedSubQueries, true).every(function (queries) { return finalResults.has(queries); });
-                                if (!allCompleted) return [3 /*break*/, 2];
-                                console.log("All subqueries have completed. Aggregating final results...");
-                                allResults = {};
-                                for (_i = 0, _a = finalResults.entries(); _i < _a.length; _i++) {
-                                    _b = _a[_i], subQueryHash = _b[0], results = _b[1];
-                                    allResults[subQueryHash] = results;
-                                }
-                                return [4 /*yield*/, this.executeR2ROperator(allResults)];
-                            case 1:
-                                _d.sent();
-                                finalResults.clear();
-                                _d.label = 2;
-                            case 2: return [2 /*return*/];
+        return __awaiter(this, void 0, void 0, function () {
+            var outputQueryParsed, outputQueryWidth, outputQuerySlide, rsp_client, that;
+            var _this = this;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        console.log("Starting aggregation process for subqueries.");
+                        return [4 /*yield*/, this.initializeSubQueryProcesses()];
+                    case 1:
+                        _a.sent();
+                        console.log("SubQuery Processes initialized for aggregation.");
+                        if (this.subQueries.length === 0) {
+                            console.error("No subqueries available for aggregation.");
+                            return [2 /*return*/];
                         }
-                    });
-                }); });
-            };
-            for (var _i = 0, _a = _this.queryMQTTTopicMap.entries(); _i < _a.length; _i++) {
-                var _b = _a[_i], hash_subQuery = _b[0], mqttTopic = _b[1];
-                _loop_1(hash_subQuery, mqttTopic);
-            }
+                        if (this.outputQuery === '') {
+                            console.error("Output query is not set for aggregation.");
+                            return [2 /*return*/];
+                        }
+                        if (this.chunkGCD <= 0) {
+                            console.error("Chunk GCD is not valid for aggregation.");
+                            return [2 /*return*/];
+                        }
+                        if (this.queryMQTTTopicMap.size === 0) {
+                            console.error("No MQTT topics mapped for subqueries.");
+                            return [2 /*return*/];
+                        }
+                        console.log("Starting aggregation of subqueries with GCD chunk size:", this.chunkGCD);
+                        if (!this.outputQuery) {
+                            console.error("Output query is not set or is undefined.");
+                            return [2 /*return*/];
+                        }
+                        outputQueryParsed = this.parser.parse(this.outputQuery);
+                        if (!outputQueryParsed) {
+                            console.error("Failed to parse output query: ".concat(this.outputQuery));
+                            return [2 /*return*/];
+                        }
+                        outputQueryWidth = outputQueryParsed.s2r[0].width;
+                        outputQuerySlide = outputQueryParsed.s2r[0].slide;
+                        if (outputQueryWidth <= 0 || outputQuerySlide <= 0) {
+                            console.error("Invalid width or slide in output query: ".concat(this.outputQuery));
+                            return [2 /*return*/];
+                        }
+                        rsp_client = mqtt_1["default"].connect(this.mqttBroker);
+                        console.log("Connecting to MQTT broker at ".concat(this.mqttBroker, "..."));
+                        rsp_client.on("error", function (err) {
+                            console.error("MQTT connection error:", err);
+                        });
+                        rsp_client.on("offline", function () {
+                            console.error("MQTT client is offline. Please check the broker connection.");
+                        });
+                        rsp_client.on("reconnect", function () {
+                            console.log("Reconnecting to MQTT broker...");
+                        });
+                        that = this;
+                        rsp_client.on("connect", function () {
+                            var topics = Array.from(that.subQueryMQTTTopicMap.values());
+                            console.log("topics to subscribe:", topics);
+                            var topicsOfProcesses = [];
+                            topicsOfProcesses = topics;
+                            console.log('DEBUG: topicsOfProcesses after loop:', topicsOfProcesses, 'length:', topicsOfProcesses.length);
+                            if (topicsOfProcesses.length === 0) {
+                                console.error('No valid MQTT topics to subscribe to. Please check the subQueryMQTTTopicMap.');
+                                return;
+                            }
+                            var _loop_1 = function (mqttTopic) {
+                                rsp_client.subscribe("".concat(mqttTopic), function (err) {
+                                    if (err) {
+                                        console.error("Failed to subscribe to topic ".concat(mqttTopic, ":"), err);
+                                    }
+                                    else {
+                                        console.log("Subscribed to topic: ".concat(mqttTopic));
+                                    }
+                                });
+                            };
+                            for (var _i = 0, topicsOfProcesses_1 = topicsOfProcesses; _i < topicsOfProcesses_1.length; _i++) {
+                                var mqttTopic = topicsOfProcesses_1[_i];
+                                _loop_1(mqttTopic);
+                            }
+                            // Add catch-all message logger for debugging
+                            rsp_client.on("message", function (topic, message) {
+                                console.log("ANY MESSAGE RECEIVED:", topic, message.toString());
+                            });
+                            // Data structure to collect all chunks
+                            var allChunks = [];
+                            var chunksRequired = Math.ceil(outputQueryWidth / _this.chunkGCD) * _this.subQueries.length;
+                            rsp_client.on("message", function (topic, message) { return __awaiter(_this, void 0, void 0, function () {
+                                return __generator(this, function (_a) {
+                                    switch (_a.label) {
+                                        case 0:
+                                            console.log("ANY MESSAGE RECEIVED:", topic, message.toString());
+                                            allChunks.push(message.toString()); // or JSON.parse(message.toString()) if you want parsed objects
+                                            if (!(allChunks.length >= chunksRequired)) return [3 /*break*/, 2];
+                                            console.log("Received enough chunks. Aggregating and triggering R2R...");
+                                            return [4 /*yield*/, this.executeR2ROperator({ chunks: allChunks.slice(0, chunksRequired) })];
+                                        case 1:
+                                            _a.sent();
+                                            // Remove used chunks for next window
+                                            allChunks.splice(0, chunksRequired);
+                                            _a.label = 2;
+                                        case 2: return [2 /*return*/];
+                                    }
+                                });
+                            }); });
+                        });
+                        return [2 /*return*/];
+                }
+            });
         });
     };
     StreamingQueryChunkAggregatorOperator.prototype.executeR2ROperator = function (allResults) {
@@ -176,41 +226,52 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
     };
     StreamingQueryChunkAggregatorOperator.prototype.initializeSubQueryProcesses = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var chunkSize, rewrittenChunkQueries, rewriteChunkQuery, i, subQuery, rewrittenQuery, _loop_2, this_1, i;
+            var chunkSize, rewrittenChunkQueries, rewriteChunkQuery, i, subQuery, rewrittenQuery, allPromises, _loop_2, this_1, i;
             return __generator(this, function (_a) {
-                chunkSize = this.findGCDChunk(this.subQueries, this.outputQuery);
-                console.log("Calculated GCD Chunk Size: ".concat(chunkSize));
-                this.chunkGCD = chunkSize;
-                rewrittenChunkQueries = [];
-                if (chunkSize > 0) {
-                    rewriteChunkQuery = new hive_thought_rewriter_1.RewriteChunkQuery(chunkSize, chunkSize);
-                    for (i = 0; i < this.subQueries.length; i++) {
-                        subQuery = this.subQueries[i];
-                        rewrittenQuery = rewriteChunkQuery.rewriteQueryWithNewChunkSize(subQuery);
-                        console.log("Rewritten SubQuery ".concat(i, ": ").concat(rewrittenQuery));
-                        rewrittenChunkQueries.push(rewrittenQuery);
-                    }
-                    _loop_2 = function (i) {
-                        // Starting a RSP Query Process for each subwritten query
-                        // which will be combined to create the final output query
-                        var hash_subQuery = (0, Util_1.hash_string_md5)(rewrittenChunkQueries[i]);
-                        this_1.queryMQTTTopicMap.set(hash_subQuery, "chunked/".concat(hash_subQuery));
-                        var rspQueryProcess = new RSPQueryProcess_1.RSPQueryProcess(rewrittenChunkQueries[i], this_1.queryMQTTTopicMap.get(hash_subQuery));
-                        rspQueryProcess.stream_process().then(function () {
-                            console.log("RSP Query Process started for subquery ".concat(i, ": ").concat(rewrittenChunkQueries[i]));
-                        })["catch"](function (error) {
-                            console.error("Error starting RSP Query Process for subquery ".concat(i, ": ").concat(rewrittenChunkQueries[i]), error);
-                        });
-                    };
-                    this_1 = this;
-                    for (i = 0; i < rewrittenChunkQueries.length; i++) {
-                        _loop_2(i);
-                    }
+                switch (_a.label) {
+                    case 0:
+                        console.log("Initializing subquery processes.");
+                        chunkSize = this.findGCDChunk(this.subQueries, this.outputQuery);
+                        console.log("Calculated GCD Chunk Size: ".concat(chunkSize));
+                        this.chunkGCD = chunkSize;
+                        rewrittenChunkQueries = [];
+                        if (!(chunkSize > 0)) return [3 /*break*/, 2];
+                        rewriteChunkQuery = new hive_thought_rewriter_1.RewriteChunkQuery(chunkSize, chunkSize);
+                        for (i = 0; i < this.subQueries.length; i++) {
+                            subQuery = this.subQueries[i];
+                            rewrittenQuery = rewriteChunkQuery.rewriteQueryWithNewChunkSize(subQuery);
+                            console.log("Rewritten SubQuery ".concat(i, ": ").concat(rewrittenQuery));
+                            rewrittenChunkQueries.push(rewrittenQuery);
+                        }
+                        allPromises = [];
+                        _loop_2 = function (i) {
+                            var hash_subQuery = (0, Util_1.hash_string_md5)(rewrittenChunkQueries[i]);
+                            this_1.subQueryMQTTTopicMap.set(hash_subQuery, "chunked/".concat(hash_subQuery));
+                            var rspQueryProcess = new RSPQueryProcess_1.RSPQueryProcess(rewrittenChunkQueries[i], "chunked/".concat(hash_subQuery));
+                            console.log("chunked/".concat(hash_subQuery, " topic created for rewrittenChunkQueries: ").concat(rewrittenChunkQueries[i], ": ").concat(rewrittenChunkQueries[i]));
+                            var p = rspQueryProcess.stream_process().then(function () {
+                                console.log("Topic chunked/".concat(hash_subQuery, " created for subquery ").concat(i));
+                                console.log("RSP Query Process started for subquery ".concat(i, ": ").concat(rewrittenChunkQueries[i]));
+                            })["catch"](function (error) {
+                                console.error("Error starting RSP Query Process for subquery ".concat(i, ": ").concat(rewrittenChunkQueries[i]), error);
+                            });
+                            allPromises.push(p);
+                        };
+                        this_1 = this;
+                        for (i = 0; i < rewrittenChunkQueries.length; i++) {
+                            _loop_2(i);
+                        }
+                        // Wait for all subquery processes to finish initializing
+                        return [4 /*yield*/, Promise.all(allPromises)];
+                    case 1:
+                        // Wait for all subquery processes to finish initializing
+                        _a.sent();
+                        return [3 /*break*/, 3];
+                    case 2:
+                        console.error("Failed to find a valid chunk size for the aggregation.");
+                        _a.label = 3;
+                    case 3: return [2 /*return*/];
                 }
-                else {
-                    console.error("Failed to find a valid chunk size for the aggregation.");
-                }
-                return [2 /*return*/];
             });
         });
     };
@@ -223,6 +284,7 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
         var window_parameters = [];
         for (var i = 0; i < subQueries.length; i++) {
             var subQueryParsed = this.parser.parse(subQueries[i]);
+            console.log("Parsed subquery ".concat(i, ": ").concat(JSON.stringify(subQueryParsed)));
             if (subQueryParsed) {
                 for (var _i = 0, _a = subQueryParsed.s2r; _i < _a.length; _i++) {
                     var s2r = _a[_i];
@@ -235,6 +297,7 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
             }
         }
         var outputQueryParsed = this.parser.parse(outputQuery);
+        console.log("Parsed output query: ".concat(JSON.stringify(outputQueryParsed)));
         if (outputQueryParsed) {
             for (var _b = 0, _c = outputQueryParsed.s2r; _b < _c.length; _b++) {
                 var s2r = _c[_b];
@@ -285,12 +348,17 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
      */
     StreamingQueryChunkAggregatorOperator.prototype.setOutputQuery = function (query) {
         this.outputQuery = query;
+        console.log("Output query set: ".concat(this.outputQuery));
+        if (this.outputQuery === '') {
+            console.error("Output query is empty. Please set a valid output query.");
+        }
     };
     /**
      *
      */
     StreamingQueryChunkAggregatorOperator.prototype.getOutputQuery = function () {
-        return this.outputQuery;
+        var _a;
+        return (_a = this.outputQuery) !== null && _a !== void 0 ? _a : "";
     };
     /**
      *

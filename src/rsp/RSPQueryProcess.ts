@@ -3,7 +3,7 @@ import { RDFStream, RSPEngine } from 'rsp-js';
 const mqtt = require('mqtt');
 const { DataFactory } = require('n3');
 import { v4 as uuidv4 } from 'uuid';
-import { RSPQLParser } from '../util/parser/RSPQLParser';
+import { RSPQLParser } from 'rsp-js';
 import { turtleStringToStore } from '../util/Util';
 
 export class RSPQueryProcess {
@@ -23,9 +23,16 @@ export class RSPQueryProcess {
     }
 
     public async stream_process() {
+        console.log(`Processing query in RSPQueryProcess: ${this.query}`);
+        if (!this.query || this.query.trim() === "") {
+            console.error(`Query is empty or undefined.`);
+            return;
+        }
         const parsed_query = this.rspql_parser.parse(this.query);
         if (parsed_query) {
             const streams: any[] = [...parsed_query.s2r];
+            console.log(`Parsed query successfully. Found ${streams.length} streams.`);
+            console.log(`The streams are: ${JSON.stringify(streams)}`);
             for (const stream of streams) {
                 const stream_name = stream.stream_name;
                 const stream_url = new URL(stream_name);
@@ -33,6 +40,7 @@ export class RSPQueryProcess {
                 const rsp_client = mqtt.connect(mqtt_broker);
                 const rsp_stream_object = this.rsp_engine.getStream(stream_name);
                 const topic = stream_url.pathname.slice(1);
+                console.log(`Connecting to MQTT broker at ${mqtt_broker} for stream ${stream_name}`);
                 rsp_client.on("connect", () => {
                     console.log(`Connected to MQTT broker`);
                     rsp_client.subscribe(topic, (err: any) => {
@@ -45,6 +53,11 @@ export class RSPQueryProcess {
                 });
 
                 rsp_client.on("message", async (topic: any, message: any) => {
+                    if (!message || message.length === 0) {
+                        console.error(`Received empty message on topic ${topic}`);
+                        return;
+                    }
+                    
                     try {
                         const message_string = message.toString();
                         const latest_event_store = await turtleStringToStore(message_string);
@@ -79,19 +92,24 @@ export class RSPQueryProcess {
         }
         else {
             console.log(`Failed to parse query: ${this.query}`);
-
         }
-
-
     }
 
 
     public async subscribeToResultStream() {
+        console.log(`Subscribing to result stream: ${this.rstream_topic}`);
+        if (!this.rstream_topic || this.rstream_topic.trim() === "") {
+            console.error(`RStream topic is empty or undefined.`);
+            return;
+        }
+        
         const mqtt_broker = "mqtt://localhost:1883";
         const rstream_publisher = mqtt.connect(mqtt_broker);
 
         this.rstream_emitter.on("RStream", async (object: any) => {
-            if (!object || object.bindings) {
+            console.log(`Received RStream object: ${JSON.stringify(object)}`);
+            
+            if (!object || !object.bindings) {
                 console.log(`No bindings found in the RStream object.`);
                 return;
             }
@@ -100,10 +118,16 @@ export class RSPQueryProcess {
             for await (const iterable of iterables) {
                 const event_timestamp = new Date().getTime();
                 const data = iterable.value;
-
+                console.log(`Processing data: ${data} at timestamp: ${event_timestamp}`);
                 const aggregation_event = this.generate_aggregation_event(data, event_timestamp);
                 const aggregation_object_string = JSON.stringify(aggregation_event);
-                rstream_publisher.publish(this.rstream_topic, aggregation_object_string);
+                rstream_publisher.publish(this.rstream_topic, aggregation_object_string, {retain: true}, (err: any) => {
+                    if (err) {
+                        console.error(`Error publishing aggregation event: ${err}`);
+                    } else {
+                        console.log(`Successfully published aggregation event: ${aggregation_object_string}`);
+                    }
+                });
                 console.log(`Published aggregation event: ${aggregation_object_string}`);
             }
         });

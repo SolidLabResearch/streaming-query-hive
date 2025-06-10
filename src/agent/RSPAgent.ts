@@ -132,25 +132,37 @@ export class RSPAgent {
         const rstream_publisher = mqtt.connect(mqtt_broker);
         const query_hash = hash_string_md5(this.query);
 
-        this.rstream_emitter.on("RStream", async (object: any) => {
-            if (!object || !object.bindings) {
-                console.log(`No bindings found in the RStream object.`);
-                process.exit(1);
-                return;
-            }
+        rstream_publisher.on("connect", () => {
+            console.log("Connected to MQTT broker for publishing");
 
-            const iterables = object.bindings.values();
+            this.rstream_emitter.on("RStream", async (object: any) => {
+                if (!object || !object.bindings) {
+                    console.log(`No bindings found in the RStream object.`);
+                    return;
+                }
 
-            for (const item of iterables) {
-                const aggregation_event_timestamp = new Date().getTime();
-                const data = item.value;
-                console.log(data);
-                
-                const aggregation_event = this.generate_aggregation_event(data, aggregation_event_timestamp);
+                const iterables = object.bindings.values();
 
-                const aggregation_object_string = JSON.stringify(aggregation_event);
-                rstream_publisher.publish(this.r2s_topic, aggregation_object_string);
-            }
+                for (const item of iterables) {
+                    const aggregation_event_timestamp = new Date().getTime();
+                    const data = item.value;
+                    console.log("Binding data received:", data);
+                    rstream_publisher.publish(this.r2s_topic, data);
+
+                    const aggregation_event = this.generate_aggregation_event(data, aggregation_event_timestamp);
+                    const aggregation_object_string = JSON.stringify(aggregation_event);
+
+                    rstream_publisher.publish(this.r2s_topic, aggregation_object_string, { retain: true }, (err: any) => {
+                        if (err) {
+                        } else {
+                        }
+                    });
+                }
+            });
+        });
+
+        rstream_publisher.on("error", (err: any) => {
+            console.error("MQTT publisher error:", err);
         });
     }
 

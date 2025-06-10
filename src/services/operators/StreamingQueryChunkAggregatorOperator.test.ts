@@ -2,7 +2,19 @@ import { StreamingQueryChunkAggregatorOperator } from "./StreamingQueryChunkAggr
 
 describe("StreamingQueryChunkAggregatorOperator", () => {
     it("should find the LCM of window parameters from subqueries and output query", () => {
-        const operator = new StreamingQueryChunkAggregatorOperator();
+        const operator = new StreamingQueryChunkAggregatorOperator(`
+            PREFIX : <https://rsp.js/>
+    REGISTER RStream <output> AS
+    SELECT (AVG(?v) AS ?avgTemp)
+    FROM NAMED WINDOW :w1 ON STREAM :stream1 [RANGE 10 STEP 2]
+    FROM NAMED WINDOW :w2 ON STREAM :stream2 [RANGE 10 STEP 2]
+
+    WHERE{
+        ?sensor a :TempSensor.
+        WINDOW :w1 { ?sensor :value ?v ; :measurement: ?m }
+        WINDOW :w2 { ?sensor :value ?v ; :measurement: ?m }
+    }
+            `);
         operator.addSubQuery(`
             PREFIX : <https://rsp.js/>
     REGISTER RStream <output> AS
@@ -51,14 +63,38 @@ describe("StreamingQueryChunkAggregatorOperator", () => {
     });
 
     it("should handle empty subqueries and output query", () => {
-        const operator = new StreamingQueryChunkAggregatorOperator();
+        const operator = new StreamingQueryChunkAggregatorOperator(`
+            PREFIX : <https://rsp.js/>
+    REGISTER RStream <output> AS
+    SELECT (AVG(?v) AS ?avgTemp)
+    FROM NAMED WINDOW :w1 ON STREAM :stream1 [RANGE 10 STEP 2]
+    FROM NAMED WINDOW :w2 ON STREAM :stream2 [RANGE 10 STEP 2]
+
+    WHERE{
+        ?sensor a :TempSensor.
+        WINDOW :w1 { ?sensor :value ?v ; :measurement: ?m }
+        WINDOW :w2 { ?sensor :value ?v ; :measurement: ?m }
+    }
+            `);
         operator.setOutputQuery("");
         const gcd = operator.findGCDChunk(operator.getSubQueries(), operator.getOutputQuery());
         expect(gcd).toBe(0); // Assuming GCD of empty input is 0
     });
 
     it("should handle single subquery with valid window parameters", () => {
-        const operator = new StreamingQueryChunkAggregatorOperator();
+        const operator = new StreamingQueryChunkAggregatorOperator(`
+            PREFIX : <https://rsp.js/>
+    REGISTER RStream <output> AS
+    SELECT (AVG(?v) AS ?avgTemp)
+    FROM NAMED WINDOW :w1 ON STREAM :stream1 [RANGE 10 STEP 2]
+    FROM NAMED WINDOW :w2 ON STREAM :stream2 [RANGE 10 STEP 2]
+
+    WHERE{
+        ?sensor a :TempSensor.
+        WINDOW :w1 { ?sensor :value ?v ; :measurement: ?m }
+        WINDOW :w2 { ?sensor :value ?v ; :measurement: ?m }
+    }
+            `);
         operator.addSubQuery(`
             PREFIX : <https://rsp.js/>
     REGISTER RStream <output> AS
@@ -84,7 +120,19 @@ describe("StreamingQueryChunkAggregatorOperator", () => {
     });
 
     it("should handle multiple subqueries with different window parameters", () => {
-        const operator = new StreamingQueryChunkAggregatorOperator();
+        const operator = new StreamingQueryChunkAggregatorOperator(`
+            PREFIX : <https://rsp.js/>
+    REGISTER RStream <output> AS
+    SELECT (AVG(?v) AS ?avgTemp)
+    FROM NAMED WINDOW :w1 ON STREAM :stream1 [RANGE 10 STEP 2]
+    FROM NAMED WINDOW :w2 ON STREAM :stream2 [RANGE 10 STEP 2]
+
+    WHERE{
+        ?sensor a :TempSensor.
+        WINDOW :w1 { ?sensor :value ?v ; :measurement: ?m }
+        WINDOW :w2 { ?sensor :value ?v ; :measurement: ?m }
+    }
+            `);
         operator.addSubQuery(`
             PREFIX : <https://rsp.js/>
     REGISTER RStream <output> AS
@@ -125,7 +173,19 @@ describe("StreamingQueryChunkAggregatorOperator", () => {
     );
 
     it("should add subqueries and output query correctly", () => {
-        const operator = new StreamingQueryChunkAggregatorOperator();
+        const operator = new StreamingQueryChunkAggregatorOperator(`
+            PREFIX : <https://rsp.js/>
+    REGISTER RStream <output> AS
+    SELECT (AVG(?v) AS ?avgTemp)
+    FROM NAMED WINDOW :w1 ON STREAM :stream1 [RANGE 10 STEP 2]
+    FROM NAMED WINDOW :w2 ON STREAM :stream2 [RANGE 10 STEP 2]
+
+    WHERE{
+        ?sensor a :TempSensor.
+        WINDOW :w1 { ?sensor :value ?v ; :measurement: ?m }
+        WINDOW :w2 { ?sensor :value ?v ; :measurement: ?m }
+    }
+            `);
         operator.addSubQuery(`
             PREFIX : <https://rsp.js/>
     REGISTER RStream <output> AS
@@ -152,7 +212,19 @@ describe("StreamingQueryChunkAggregatorOperator", () => {
     );
 
     it("should clear subqueries correctly", () => {
-        const operator = new StreamingQueryChunkAggregatorOperator();
+        const operator = new StreamingQueryChunkAggregatorOperator(`
+            PREFIX : <https://rsp.js/>
+    REGISTER RStream <output> AS
+    SELECT (AVG(?v) AS ?avgTemp)
+    FROM NAMED WINDOW :w1 ON STREAM :stream1 [RANGE 10 STEP 2]
+    FROM NAMED WINDOW :w2 ON STREAM :stream2 [RANGE 10 STEP 2]
+
+    WHERE{
+        ?sensor a :TempSensor.
+        WINDOW :w1 { ?sensor :value ?v ; :measurement: ?m }
+        WINDOW :w2 { ?sensor :value ?v ; :measurement: ?m }
+    }
+            `);
         operator.addSubQuery(`
             PREFIX : <https://rsp.js/>
     REGISTER RStream <output> AS
