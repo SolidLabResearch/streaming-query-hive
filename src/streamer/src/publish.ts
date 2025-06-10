@@ -19,6 +19,14 @@ async function replayStreams() {
     
 }
 
+async function replayZStream() {
+    const publisher = new StreamToMQTT('mqtt://localhost:1883', 1, 'src/streamer/data/rdfData/accelerometer/acc-z.nt', "accZ");
+    console.log("Starting replay for accZ stream");
+    await publisher.replay_streams();
+    console.log("Replay completed for accZ stream");
+}
+
 main();
 
 replayStreams().catch(console.error);
+replayZStream().catch(console.error);

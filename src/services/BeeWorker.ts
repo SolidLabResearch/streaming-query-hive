@@ -94,8 +94,26 @@ WHERE {
         ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .
     }
 }`;
+
+            const query3 = `
+                    PREFIX mqtt_broker: <mqtt://localhost:1883/>
+    PREFIX saref: <https://saref.etsi.org/core/>
+PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
+PREFIX : <https://rsp.js> 
+REGISTER RStream <output> AS
+SELECT (AVG(?o3) AS ?avgZ)
+FROM NAMED WINDOW :w3 ON STREAM mqtt_broker:accZ [RANGE 60000 STEP 60000]
+WHERE {
+    WINDOW :w3 {
+        ?s saref:hasValue ?o3 .
+        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.z .
+    }
+}
+    `;
         streamingQueryChunkAggregatorOperator.addSubQuery(query1);
         streamingQueryChunkAggregatorOperator.addSubQuery(query2);
+        streamingQueryChunkAggregatorOperator.addSubQuery(query3);
+
         console.log("About to call init()");
 
         await streamingQueryChunkAggregatorOperator.init();

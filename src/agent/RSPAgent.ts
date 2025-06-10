@@ -152,7 +152,7 @@ export class RSPAgent {
                     const aggregation_event = this.generate_aggregation_event(data, aggregation_event_timestamp);
                     const aggregation_object_string = JSON.stringify(aggregation_event);
 
-                    rstream_publisher.publish(this.r2s_topic, aggregation_object_string, { retain: true }, (err: any) => {
+                    rstream_publisher.publish(this.r2s_topic, aggregation_object_string, (err: any) => {
                         if (err) {
                         } else {
                         }
@@ -175,7 +175,6 @@ export class RSPAgent {
         const uuid_random = uuidv4();
 
         const aggregation_event = `
-    <https://rsp.js/aggregation_event/${uuid_random}> <https://saref.etsi.org/core/hasTimestamp> "${timestamp}"^^<http://www.w3.org/2001/XMLSchema#long> .
     <https://rsp.js/aggregation_event/${uuid_random}> <https://saref.etsi.org/core/hasValue> "${data}"^^<http://www.w3.org/2001/XMLSchema#float> .
     `;
         return aggregation_event.trim();

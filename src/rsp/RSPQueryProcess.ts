@@ -57,7 +57,7 @@ export class RSPQueryProcess {
                         console.error(`Received empty message on topic ${topic}`);
                         return;
                     }
-                    
+
                     try {
                         const message_string = message.toString();
                         const latest_event_store = await turtleStringToStore(message_string);
@@ -102,13 +102,13 @@ export class RSPQueryProcess {
             console.error(`RStream topic is empty or undefined.`);
             return;
         }
-        
+
         const mqtt_broker = "mqtt://localhost:1883";
         const rstream_publisher = mqtt.connect(mqtt_broker);
 
         this.rstream_emitter.on("RStream", async (object: any) => {
             console.log(`Received RStream object: ${JSON.stringify(object)}`);
-            
+
             if (!object || !object.bindings) {
                 console.log(`No bindings found in the RStream object.`);
                 return;
@@ -121,7 +121,7 @@ export class RSPQueryProcess {
                 console.log(`Processing data: ${data} at timestamp: ${event_timestamp}`);
                 const aggregation_event = this.generate_aggregation_event(data, event_timestamp);
                 const aggregation_object_string = JSON.stringify(aggregation_event);
-                rstream_publisher.publish(this.rstream_topic, aggregation_object_string, {retain: true}, (err: any) => {
+                rstream_publisher.publish(this.rstream_topic, aggregation_object_string, (err: any) => {
                     if (err) {
                         console.error(`Error publishing aggregation event: ${err}`);
                     } else {
@@ -138,7 +138,6 @@ export class RSPQueryProcess {
         const uuid_random = uuidv4();
 
         const aggregation_event = `
-    <https://rsp.js/aggregation_event/${uuid_random}> <https://saref.etsi.org/core/hasTimestamp> "${timestamp}"^^<http://www.w3.org/2001/XMLSchema#long> .
     <https://rsp.js/aggregation_event/${uuid_random}> <https://saref.etsi.org/core/hasValue> "${data}"^^<http://www.w3.org/2001/XMLSchema#float> .
     `;
         return aggregation_event.trim();
@@ -154,7 +153,7 @@ export class RSPQueryProcess {
                     quad.predicate,
                     quad.object,
                     DataFactory.namedNode(stream_name)
-                );                
+                );
                 stream.add(quadWithGraph, timestamp);
             }
         });

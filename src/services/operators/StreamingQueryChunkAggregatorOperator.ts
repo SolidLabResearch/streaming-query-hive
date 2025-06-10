@@ -2,7 +2,9 @@ import { RSPQLParser } from "rsp-js";
 import { RewriteChunkQuery } from "hive-thought-rewriter"
 import { RSPQueryProcess } from "../../rsp/RSPQueryProcess";
 import { hash_string_md5 } from "../../util/Util";
+import { R2ROperator } from "../operators/r2r";
 import mqtt from "mqtt";
+const N3 = require('n3');
 /**
  *
  */
@@ -139,6 +141,10 @@ export class StreamingQueryChunkAggregatorOperator {
             // Data structure to collect all chunks
             const allChunks: any[] = [];
             const chunksRequired = Math.ceil(outputQueryWidth / this.chunkGCD) * this.subQueries.length;
+            console.log(`Chunks required for aggregation: ${chunksRequired}`);
+            console.log(`Output Query Width: ${outputQueryWidth}, Chunk GCD: ${this.chunkGCD}, SubQueries Length: ${this.subQueries.length}`);
+            
+            
 
             rsp_client.on("message", async (topic, message) => {
                 console.log("ANY MESSAGE RECEIVED:", topic, message.toString());
@@ -146,7 +152,7 @@ export class StreamingQueryChunkAggregatorOperator {
 
                 if (allChunks.length >= chunksRequired) {
                     console.log("Received enough chunks. Aggregating and triggering R2R...");
-                    await this.executeR2ROperator({ chunks: allChunks.slice(0, chunksRequired) });
+                    await this.executeR2ROperator(allChunks.slice(0, chunksRequired));
                     // Remove used chunks for next window
                     allChunks.splice(0, chunksRequired);
                 }
@@ -157,9 +163,83 @@ export class StreamingQueryChunkAggregatorOperator {
 
 
 
-    async executeR2ROperator(allResults: Record<string, any[]>): Promise<void> {
-        console.log(`Executing the R2R Operator with results:`, allResults);
+    async executeR2ROperator(chunks: string[]): Promise<void> {
+        console.log(`Executing the R2R Operator with results:`, chunks);
 
+        /*
+For example, the allResults object might look like this:
+          chunks: [
+    '"<https://rsp.js/aggregation_event/89302616-a8d1-4a99-8b97-1f7efac51d88> <https://saref.etsi.org/core/hasTimestamp> \\"1749592410235\\"^^<http://www.w3.org/2001/XMLSchema#long> .\\n    <https://rsp.js/aggregation_event/89302616-a8d1-4a99-8b97-1f7efac51d88> <https://saref.etsi.org/core/hasValue> \\"-22.666666666666668\\"^^<http://www.w3.org/2001/XMLSchema#float> ."',
+    '"<https://rsp.js/aggregation_event/b31b1867-f310-4c39-8379-893044ab517d> <https://saref.etsi.org/core/hasTimestamp> \\"1749592410517\\"^^<http://www.w3.org/2001/XMLSchema#long> .\\n    <https://rsp.js/aggregation_event/b31b1867-f310-4c39-8379-893044ab517d> <https://saref.etsi.org/core/hasValue> \\"-4.2\\"^^<http://www.w3.org/2001/XMLSchema#float> ."',
+    '"<https://rsp.js/aggregation_event/65223e5b-711e-4c8a-95ab-878df02fec83> <https://saref.etsi.org/core/hasTimestamp> \\"1749592710780\\"^^<http://www.w3.org/2001/XMLSchema#long> .\\n    <https://rsp.js/aggregation_event/65223e5b-711e-4c8a-95ab-878df02fec83> <https://saref.etsi.org/core/hasValue> \\"-22.857142857142858\\"^^<http://www.w3.org/2001/XMLSchema#float> ."',
+    '"<https://rsp.js/aggregation_event/6848a43f-b852-4914-81d0-c40c3f3840bc> <https://saref.etsi.org/core/hasTimestamp> \\"1749592710869\\"^^<http://www.w3.org/2001/XMLSchema#long> .\\n    <https://rsp.js/aggregation_event/6848a43f-b852-4914-81d0-c40c3f3840bc> <https://saref.etsi.org/core/hasValue> \\"-4.285714285714286\\"^^<http://www.w3.org/2001/XMLSchema#float> ."',
+    '"<https://rsp.js/aggregation_event/6e9d0962-02ac-4424-8211-e0e44c609a12> <https://saref.etsi.org/core/hasTimestamp> \\"1749592740597\\"^^<http://www.w3.org/2001/XMLSchema#long> .\\n    <https://rsp.js/aggregation_event/6e9d0962-02ac-4424-8211-e0e44c609a12> <https://saref.etsi.org/core/hasValue> \\"-22.7\\"^^<http://www.w3.org/2001/XMLSchema#float> ."',
+    '"<https://rsp.js/aggregation_event/0d4e9551-fe52-4bb1-a186-c342c091fe6d> <https://saref.etsi.org/core/hasTimestamp> \\"1749592740995\\"^^<http://www.w3.org/2001/XMLSchema#long> .\\n    <https://rsp.js/aggregation_event/0d4e9551-fe52-4bb1-a186-c342c091fe6d> <https://saref.etsi.org/core/hasValue> \\"-4.2\\"^^<http://www.w3.org/2001/XMLSchema#float> ."',
+    '"<https://rsp.js/aggregation_event/0a3bcc3b-acb8-4d52-985b-185a2db9b4dd> <https://saref.etsi.org/core/hasTimestamp> \\"1749592770111\\"^^<http://www.w3.org/2001/XMLSchema#long> .\\n    <https://rsp.js/aggregation_event/0a3bcc3b-acb8-4d52-985b-185a2db9b4dd> <https://saref.etsi.org/core/hasValue> \\"-4.103448275862069\\"^^<http://www.w3.org/2001/XMLSchema#float> ."',
+    '"<https://rsp.js/aggregation_event/327ae8b1-52a1-48f8-9749-324000a75a45> <https://saref.etsi.org/core/hasTimestamp> \\"1749592770747\\"^^<http://www.w3.org/2001/XMLSchema#long> .\\n    <https://rsp.js/aggregation_event/327ae8b1-52a1-48f8-9749-324000a75a45> <https://saref.etsi.org/core/hasValue> \\"-23\\"^^<http://www.w3.org/2001/XMLSchema#float> ."'
+  ]
+        */
+        const resultString = chunks.map(chunk => JSON.parse(chunk)).join('\n');
+
+        try {
+            const parser = new N3.Parser();
+            const store = new N3.Store();
+
+            const quads = parser.parse(resultString); // parse returns array of quads
+            store.addQuads(quads); // add all quads to store
+        } catch (e) {
+            console.error("Failed to parse combined Turtle string:", e);
+        }
+        const detectAggregationFunction = this.detectAggregationFunction(this.outputQuery);
+        if (!detectAggregationFunction) {
+            console.error("No aggregation function detected in the output query.");
+            return;
+        }
+        const aggregationSPARQLQuery = this.getAggregationSPARQLQuery(detectAggregationFunction, 'o');
+        if (!aggregationSPARQLQuery) {
+            console.error("Failed to generate aggregation SPARQL query.");
+            return;
+        }
+        console.log("Generated Aggregation SPARQL Query:", aggregationSPARQLQuery);
+        const r2rOperator = new R2ROperator(aggregationSPARQLQuery);
+        const bindingStream = await r2rOperator.execute(store);
+        if (!bindingStream) {
+            console.error("Failed to execute R2R Operator.");
+            return;
+        }
+        bindingStream.on('data', (data: any) => {
+            console.log("R2R Operator Data Received:", data);
+            const outputQueryEvent = this.generateOutputQueryEvent(data.get('result').value);
+            console.log("Generated Output Query Event:", outputQueryEvent);
+            // Publish the output query event to the MQTT broker
+            const rsp_client = mqtt.connect(this.mqttBroker);
+            rsp_client.on("connect", () => {
+                const outputTopic = `output`;
+                rsp_client.publish(outputTopic, outputQueryEvent, (err: any) => {
+                    if (err) {
+                        console.error(`Error publishing output query event to topic ${outputTopic}:`, err);
+                    } else {
+                        console.log(`Output query event published to topic ${outputTopic}`);
+                    }
+                });
+            });
+            rsp_client.on("error", (err) => {
+                console.error("MQTT connection error:", err);
+            });
+            rsp_client.on("offline", () => {
+                console.error("MQTT client is offline. Please check the broker connection.");
+            }
+            );
+            rsp_client.on("reconnect", () => {
+                console.log("Reconnecting to MQTT broker...");
+            }
+            );
+        });
+    }
+
+    generateOutputQueryEvent(data: any): string {
+        const uuid_random = uuidv4();
+        return ` <https://rsp.js/outputQueryEvent/${uuid_random}> <https://saref.etsi.org/core/hasValue> "${data}"^^<http://www.w3.org/2001/XMLSchema#float> .`
     }
 
     async initializeSubQueryProcesses(): Promise<void> {
@@ -302,4 +382,44 @@ export class StreamingQueryChunkAggregatorOperator {
         this.subQueries = [];
     }
 
+    detectAggregationFunction(query: string): string | null {
+        const aggregationFunctions = ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX'];
+        for (const func of aggregationFunctions) {
+            if (query.includes(func)) {
+                return func;
+            }
+        }
+        return null;
+    }
+
+    getAggregationSPARQLQuery(aggregationFunction: string, variable: string): string {
+        const allowedFunctions = ['AVG', 'SUM', 'COUNT', 'MIN', 'MAX'];
+
+        if (!aggregationFunction || !variable) {
+            console.error("Missing aggregation function or variable.");
+            return '';
+        }
+
+        aggregationFunction = aggregationFunction.toUpperCase();
+        if (!allowedFunctions.includes(aggregationFunction)) {
+            console.error("Invalid aggregation function.");
+            return '';
+        }
+
+        if (!variable.startsWith('?')) {
+            variable = '?' + variable;
+        }
+
+        return `SELECT (${aggregationFunction}(${variable}) AS ?result) WHERE { ?s ?p ${variable} }`;
+    }
+
+
+}
+
+function uuidv4() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
 }

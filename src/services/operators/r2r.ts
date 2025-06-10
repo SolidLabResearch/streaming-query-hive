@@ -35,15 +35,15 @@ export class R2ROperator {
      * @param {QuadContainer} container - The container of quads on which the operator is to be executed. The container contains a set of quads.
      * @returns {Promise<any>} - The promise of the result of the query execution.
      */
-    async execute(container: QuadContainer) {
+    async execute(streamStore: typeof N3.Store): Promise<any> {
         const store = new N3.Store();
-        for (const elem of container.elements) {
+        for (const elem of streamStore.getQuads(null, null, null, null)) {
             store.addQuad(elem);
         }
         for (const elem of this.staticData) {
             store.addQuad(elem);
         }
-        
+
         const myEngine = new QueryEngine();
         return await myEngine.queryBindings(this.query, {
             sources: [store],

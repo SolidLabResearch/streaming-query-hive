@@ -200,7 +200,7 @@ var RSPQueryProcess = /** @class */ (function () {
                                 console.log("Processing data: ".concat(data, " at timestamp: ").concat(event_timestamp));
                                 aggregation_event = this.generate_aggregation_event(data, event_timestamp);
                                 aggregation_object_string = JSON.stringify(aggregation_event);
-                                rstream_publisher.publish(this.rstream_topic, aggregation_object_string, { retain: true }, function (err) {
+                                rstream_publisher.publish(this.rstream_topic, aggregation_object_string, function (err) {
                                     if (err) {
                                         console.error("Error publishing aggregation event: ".concat(err));
                                     }
@@ -238,7 +238,7 @@ var RSPQueryProcess = /** @class */ (function () {
     };
     RSPQueryProcess.prototype.generate_aggregation_event = function (data, timestamp) {
         var uuid_random = (0, uuid_1.v4)();
-        var aggregation_event = "\n    <https://rsp.js/aggregation_event/".concat(uuid_random, "> <https://saref.etsi.org/core/hasTimestamp> \"").concat(timestamp, "\"^^<http://www.w3.org/2001/XMLSchema#long> .\n    <https://rsp.js/aggregation_event/").concat(uuid_random, "> <https://saref.etsi.org/core/hasValue> \"").concat(data, "\"^^<http://www.w3.org/2001/XMLSchema#float> .\n    ");
+        var aggregation_event = "\n    <https://rsp.js/aggregation_event/".concat(uuid_random, "> <https://saref.etsi.org/core/hasValue> \"").concat(data, "\"^^<http://www.w3.org/2001/XMLSchema#float> .\n    ");
         return aggregation_event.trim();
     };
     RSPQueryProcess.prototype.add_event_store_to_rsp_engine = function (event_store, stream_name, timestamp) {

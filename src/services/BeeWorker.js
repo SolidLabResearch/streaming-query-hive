@@ -65,7 +65,7 @@ var BeeWorker = /** @class */ (function () {
     }
     BeeWorker.prototype.process = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var fetchLocation, executingQueries, rspql_queries, parsed_queries, _i, _a, _b, id, rspql_query, streamingQueryChunkAggregatorOperator, query1, query2;
+            var fetchLocation, executingQueries, rspql_queries, parsed_queries, _i, _a, _b, id, rspql_query, streamingQueryChunkAggregatorOperator, query1, query2, query3;
             return __generator(this, function (_c) {
                 switch (_c.label) {
                     case 0:
@@ -100,8 +100,10 @@ var BeeWorker = /** @class */ (function () {
                         streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAggregatorOperator_1.StreamingQueryChunkAggregatorOperator(this.query);
                         query1 = "\n            PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgX)\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 60000 STEP 60000]\nWHERE {\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .\n    }\n}\n    ";
                         query2 = "\n                PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgY)\nFROM NAMED WINDOW :w2 ON STREAM mqtt_broker:accY [RANGE 60000 STEP 60000]\nWHERE {\n    WINDOW :w2 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .\n    }\n}";
+                        query3 = "\n                    PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o3) AS ?avgZ)\nFROM NAMED WINDOW :w3 ON STREAM mqtt_broker:accZ [RANGE 60000 STEP 60000]\nWHERE {\n    WINDOW :w3 {\n        ?s saref:hasValue ?o3 .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.z .\n    }\n}\n    ";
                         streamingQueryChunkAggregatorOperator.addSubQuery(query1);
                         streamingQueryChunkAggregatorOperator.addSubQuery(query2);
+                        streamingQueryChunkAggregatorOperator.addSubQuery(query3);
                         console.log("About to call init()");
                         return [4 /*yield*/, streamingQueryChunkAggregatorOperator.init()];
                     case 2:

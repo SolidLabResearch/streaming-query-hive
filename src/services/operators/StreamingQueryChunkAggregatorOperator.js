@@ -41,7 +41,9 @@ var rsp_js_1 = require("rsp-js");
 var hive_thought_rewriter_1 = require("hive-thought-rewriter");
 var RSPQueryProcess_1 = require("../../rsp/RSPQueryProcess");
 var Util_1 = require("../../util/Util");
+var r2r_1 = require("../operators/r2r");
 var mqtt_1 = require("mqtt");
+var N3 = require('n3');
 /**
  *
  */
@@ -192,6 +194,8 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
                             // Data structure to collect all chunks
                             var allChunks = [];
                             var chunksRequired = Math.ceil(outputQueryWidth / _this.chunkGCD) * _this.subQueries.length;
+                            console.log("Chunks required for aggregation: ".concat(chunksRequired));
+                            console.log("Output Query Width: ".concat(outputQueryWidth, ", Chunk GCD: ").concat(_this.chunkGCD, ", SubQueries Length: ").concat(_this.subQueries.length));
                             rsp_client.on("message", function (topic, message) { return __awaiter(_this, void 0, void 0, function () {
                                 return __generator(this, function (_a) {
                                     switch (_a.label) {
@@ -200,7 +204,7 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
                                             allChunks.push(message.toString()); // or JSON.parse(message.toString()) if you want parsed objects
                                             if (!(allChunks.length >= chunksRequired)) return [3 /*break*/, 2];
                                             console.log("Received enough chunks. Aggregating and triggering R2R...");
-                                            return [4 /*yield*/, this.executeR2ROperator({ chunks: allChunks.slice(0, chunksRequired) })];
+                                            return [4 /*yield*/, this.executeR2ROperator(allChunks.slice(0, chunksRequired))];
                                         case 1:
                                             _a.sent();
                                             // Remove used chunks for next window
@@ -216,13 +220,78 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
             });
         });
     };
-    StreamingQueryChunkAggregatorOperator.prototype.executeR2ROperator = function (allResults) {
+    StreamingQueryChunkAggregatorOperator.prototype.executeR2ROperator = function (chunks) {
         return __awaiter(this, void 0, void 0, function () {
+            var resultString, parser, store, quads, detectAggregationFunction, aggregationSPARQLQuery, r2rOperator, bindingStream;
+            var _this = this;
             return __generator(this, function (_a) {
-                console.log("Executing the R2R Operator with results:", allResults);
-                return [2 /*return*/];
+                switch (_a.label) {
+                    case 0:
+                        console.log("Executing the R2R Operator with results:", chunks);
+                        resultString = chunks.map(function (chunk) { return JSON.parse(chunk); }).join('\n');
+                        try {
+                            parser = new N3.Parser();
+                            store = new N3.Store();
+                            quads = parser.parse(resultString);
+                            store.addQuads(quads); // add all quads to store
+                        }
+                        catch (e) {
+                            console.error("Failed to parse combined Turtle string:", e);
+                        }
+                        detectAggregationFunction = this.detectAggregationFunction(this.outputQuery);
+                        if (!detectAggregationFunction) {
+                            console.error("No aggregation function detected in the output query.");
+                            return [2 /*return*/];
+                        }
+                        aggregationSPARQLQuery = this.getAggregationSPARQLQuery(detectAggregationFunction, 'o');
+                        if (!aggregationSPARQLQuery) {
+                            console.error("Failed to generate aggregation SPARQL query.");
+                            return [2 /*return*/];
+                        }
+                        console.log("Generated Aggregation SPARQL Query:", aggregationSPARQLQuery);
+                        r2rOperator = new r2r_1.R2ROperator(aggregationSPARQLQuery);
+                        return [4 /*yield*/, r2rOperator.execute(store)];
+                    case 1:
+                        bindingStream = _a.sent();
+                        if (!bindingStream) {
+                            console.error("Failed to execute R2R Operator.");
+                            return [2 /*return*/];
+                        }
+                        bindingStream.on('data', function (data) {
+                            console.log("R2R Operator Data Received:", data);
+                            var outputQueryEvent = _this.generateOutputQueryEvent(data.get('result').value);
+                            console.log("Generated Output Query Event:", outputQueryEvent);
+                            // Publish the output query event to the MQTT broker
+                            var rsp_client = mqtt_1["default"].connect(_this.mqttBroker);
+                            rsp_client.on("connect", function () {
+                                var outputTopic = "output";
+                                rsp_client.publish(outputTopic, outputQueryEvent, function (err) {
+                                    if (err) {
+                                        console.error("Error publishing output query event to topic ".concat(outputTopic, ":"), err);
+                                    }
+                                    else {
+                                        console.log("Output query event published to topic ".concat(outputTopic));
+                                    }
+                                });
+                            });
+                            rsp_client.on("error", function (err) {
+                                console.error("MQTT connection error:", err);
+                            });
+                            rsp_client.on("offline", function () {
+                                console.error("MQTT client is offline. Please check the broker connection.");
+                            });
+                            rsp_client.on("reconnect", function () {
+                                console.log("Reconnecting to MQTT broker...");
+                            });
+                        });
+                        return [2 /*return*/];
+                }
             });
         });
+    };
+    StreamingQueryChunkAggregatorOperator.prototype.generateOutputQueryEvent = function (data) {
+        var uuid_random = uuidv4();
+        return " <https://rsp.js/outputQueryEvent/".concat(uuid_random, "> <https://saref.etsi.org/core/hasValue> \"").concat(data, "\"^^<http://www.w3.org/2001/XMLSchema#float> .");
     };
     StreamingQueryChunkAggregatorOperator.prototype.initializeSubQueryProcesses = function () {
         return __awaiter(this, void 0, void 0, function () {
@@ -372,6 +441,39 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
     StreamingQueryChunkAggregatorOperator.prototype.clearSubQueries = function () {
         this.subQueries = [];
     };
+    StreamingQueryChunkAggregatorOperator.prototype.detectAggregationFunction = function (query) {
+        var aggregationFunctions = ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX'];
+        for (var _i = 0, aggregationFunctions_1 = aggregationFunctions; _i < aggregationFunctions_1.length; _i++) {
+            var func = aggregationFunctions_1[_i];
+            if (query.includes(func)) {
+                return func;
+            }
+        }
+        return null;
+    };
+    StreamingQueryChunkAggregatorOperator.prototype.getAggregationSPARQLQuery = function (aggregationFunction, variable) {
+        var allowedFunctions = ['AVG', 'SUM', 'COUNT', 'MIN', 'MAX'];
+        if (!aggregationFunction || !variable) {
+            console.error("Missing aggregation function or variable.");
+            return '';
+        }
+        aggregationFunction = aggregationFunction.toUpperCase();
+        if (!allowedFunctions.includes(aggregationFunction)) {
+            console.error("Invalid aggregation function.");
+            return '';
+        }
+        if (!variable.startsWith('?')) {
+            variable = '?' + variable;
+        }
+        return "SELECT (".concat(aggregationFunction, "(").concat(variable, ") AS ?result) WHERE { ?s ?p ").concat(variable, " }");
+    };
     return StreamingQueryChunkAggregatorOperator;
 }());
 exports.StreamingQueryChunkAggregatorOperator = StreamingQueryChunkAggregatorOperator;
+function uuidv4() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0;
+        var v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
