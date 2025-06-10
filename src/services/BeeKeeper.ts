@@ -13,7 +13,11 @@ import { HiveQueryBee } from "./HiveQueryBee";
  * that runs in parallel to the main process.
  */
 export class BeeKeeper {
-    private bees: Map<string, any> = new Map();
+    private bees: Map<string, any>
+    constructor() {
+        // Initialize the BeeKeeper with an empty map of bees
+        this.bees = new Map();
+    }
 
     /**
      * Execute a query by creating a new HiveQueryBee worker.

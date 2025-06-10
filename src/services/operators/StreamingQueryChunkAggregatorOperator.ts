@@ -2,8 +2,7 @@ import { RSPQLParser } from "../../util/parser/RSPQLParser";
 import { RewriteChunkQuery } from "hive-thought-rewriter"
 import { RSPQueryProcess } from "../../rsp/RSPQueryProcess";
 import { hash_string_md5 } from "../../util/Util";
-import mqtt from "mqtt/*";
-import { computeWindowIfAbsent } from "./s2r";
+import mqtt from "mqtt";
 /**
  *
  */
@@ -12,7 +11,7 @@ export class StreamingQueryChunkAggregatorOperator {
     public subQueries: string[];
     public outputQuery: string;
     private parser: RSPQLParser;
-    private queryMQTTTopicMap: Map<string, string>;
+    private queryMQTTTopicMap!: Map<string, string>;
     private chunkGCD: number;
     private mqttBroker: string = 'mqtt://localhost:1883'; // Default MQTT broker URL, can be changed if needed
     /**
@@ -22,126 +21,170 @@ export class StreamingQueryChunkAggregatorOperator {
         this.subQueries = [];
         this.outputQuery = '';
         this.parser = new RSPQLParser();
-        this.queryMQTTTopicMap = new Map<string, string>();
         this.chunkGCD = 0;
+        this.init();
+    }
+
+    private async init() {
+        await this.setMQTTTopicMap();
+        console.log("StreamingQueryChunkAggregatorOperator initialized.");
+        this.handleAggregation();
+    }
+
+    async setMQTTTopicMap(): Promise<void> {
+        this.queryMQTTTopicMap = new Map<string, string>();
+        console.log("MQTT Topic Map set for subqueries:", this.queryMQTTTopicMap);
+        const response = await fetch("http://localhost:8080/fetchQueries");
+        if (!response.ok) {
+            console.error("Failed to fetch queries from the server.");
+            return;
+        }
+        const data = await response.json();
+        for (const [queryHash, mqttTopic] of Object.entries(data)) {
+            this.queryMQTTTopicMap.set(queryHash as string, mqttTopic as string);
+            console.log(`Subquery ${queryHash} mapped to MQTT Topic ${mqttTopic}`);
+        }
     }
 
     /**
      *
      */
-    handleAggregation(): void {
-        this.initializeSubQueryProcesses();
-        console.log("SubQuery Processes initialized for aggregation.");
-        if (this.subQueries.length === 0) {
-            console.error("No subqueries available for aggregation.");
-            return;
-        }
-        if (this.outputQuery === '') {
-            console.error("Output query is not set for aggregation.");
-            return;
-        }
+handleAggregation(): void {
+    this.initializeSubQueryProcesses();
+    console.log("SubQuery Processes initialized for aggregation.");
 
-        if (this.chunkGCD <= 0) {
-            console.error("Chunk GCD is not valid for aggregation.");
-            return;
-        }
-
-        if (this.queryMQTTTopicMap.size === 0) {
-            console.error("No MQTT topics mapped for subqueries.");
-            return;
-        }
-
-        console.log("Starting aggregation of subqueries with GCD chunk size:", this.chunkGCD);
-
-        const outputQueryParsed = this.parser.parse(this.outputQuery);
-        if (!outputQueryParsed) {
-            console.error(`Failed to parse output query: ${this.outputQuery}`);
-            return;
-        }
-
-        const outputQueryWidth = outputQueryParsed.s2r[0].width;
-        const outputQuerySlide = outputQueryParsed.s2r[0].slide;
-        if (outputQueryWidth <= 0 || outputQuerySlide <= 0) {
-            console.error(`Invalid width or slide in output query: ${this.outputQuery}`);
-            return;
-        }
-
-
-        const rsp_client = mqtt.connect(this.mqttBroker);
-        rsp_client.on("connect", () => {
-            console.log(`Connected to MQTT broker at ${this.mqttBroker}`);
-            // Store partial results per hash_subQuery
-            const partialResults: Map<string, any[]> = new Map<string, any[]>();
-            // Calculate the chunk size for the output query based on the GCD
-            const numbersOfChunksRequiredForOutputQuery = Math.ceil(outputQueryWidth / this.chunkGCD);
-            // Set of expected subqueries with topics
-            const expectedSubQueries = new Set(this.queryMQTTTopicMap.keys());
-
-            // Mao to hold the final full data for each subquery after the chunks are received
-            const finalResults: Map<string, any[]> = new Map<string, any[]>();
-
-            for (const [hash_subQuery, mqttTopic] of this.queryMQTTTopicMap.entries()) {
-                console.log(`SubQuery ${hash_subQuery} is mapped to MQTT Topic ${mqttTopic}`);
-                rsp_client.subscribe(`chunked/${hash_subQuery}`, (err) => {
-                    if (err) {
-                        console.error(`Failed to subscribe to output query topic: chunked/${hash_subQuery}`, err);
-                    } else {
-                        console.log(`Subscribed to output query topic: chunked/${hash_subQuery}`);
-                    }
-                });
-
-                rsp_client.on("message", async (topic, message) => {
-                    const hash_subQuery = topic.split("/")[1];
-                    console.log(`Received message for subquery ${hash_subQuery}:`, message.toString());
-                    const payload = JSON.parse(message.toString());
-                    if (!partialResults.has(hash_subQuery)) {
-                        partialResults.set(hash_subQuery, []);
-                    }
-
-                    partialResults.get(hash_subQuery)?.push(payload);
-                    console.log(`Partial results for subquery ${hash_subQuery}:`, partialResults.get(hash_subQuery));
-
-
-                    const chunkArray = partialResults.get(hash_subQuery);
-
-                    if (chunkArray?.length === numbersOfChunksRequiredForOutputQuery) {
-                        console.log(`Most of the chunks are received for subquery ${hash_subQuery}. Processing aggregation...`);
-                        finalResults.set(hash_subQuery, chunkArray);
-                        partialResults.delete(hash_subQuery);
-                    }
-
-                    const allCompleted = [...expectedSubQueries].every(queries => finalResults.has(queries));
-
-                    if (allCompleted) {
-                        console.log(`All subqueries have completed. Aggregating final results...`);
-
-                        const allResults: Record<string, any[]> = {};
-
-                        for (const [subQueryHash, results] of finalResults.entries()) {
-                            allResults[subQueryHash] = results;
-                        }
-
-                        await this.executeR2ROperator(allResults);
-
-                        finalResults.clear();
-
-                    }
-
-                });
-
-            }
-
-        });
-
-
+    if (this.subQueries.length === 0) {
+        console.error("No subqueries available for aggregation.");
+        return;
     }
+    if (this.outputQuery === '') {
+        console.error("Output query is not set for aggregation.");
+        return;
+    }
+    if (this.chunkGCD <= 0) {
+        console.error("Chunk GCD is not valid for aggregation.");
+        return;
+    }
+    if (this.queryMQTTTopicMap.size === 0) {
+        console.error("No MQTT topics mapped for subqueries.");
+        return;
+    }
+
+    console.log("Starting aggregation of subqueries with GCD chunk size:", this.chunkGCD);
+
+    const outputQueryParsed = this.parser.parse(this.outputQuery);
+    if (!outputQueryParsed) {
+        console.error(`Failed to parse output query: ${this.outputQuery}`);
+        return;
+    }
+
+    const outputQueryWidth = outputQueryParsed.s2r[0].width;
+    const outputQuerySlide = outputQueryParsed.s2r[0].slide;
+    if (outputQueryWidth <= 0 || outputQuerySlide <= 0) {
+        console.error(`Invalid width or slide in output query: ${this.outputQuery}`);
+        return;
+    }
+
+    const rsp_client = mqtt.connect(this.mqttBroker);
+
+    rsp_client.on("connect", () => {
+        console.log(`Connected to MQTT broker at ${this.mqttBroker}`);
+
+        const partialResults: Map<string, any[]> = new Map();
+        const finalResults: Map<string, any[]> = new Map();
+        const expectedSubQueries = new Set(this.queryMQTTTopicMap.keys());
+        const chunksRequired = Math.ceil(outputQueryWidth / this.chunkGCD);
+        let aggregationComplete = false;
+
+        // Subscribe to all topics
+        for (const [hash_subQuery, mqttTopic] of this.queryMQTTTopicMap.entries()) {
+            console.log(`SubQuery ${hash_subQuery} is mapped to MQTT Topic ${mqttTopic}`);
+            rsp_client.subscribe(mqttTopic, (err) => {
+                if (err) {
+                    console.error(`Failed to subscribe to topic ${mqttTopic}:`, err);
+                } else {
+                    console.log(`Subscribed to topic: ${mqttTopic}`);
+                }
+            });
+        }
+
+        const receivedSubQueries = new Set<string>();
+
+rsp_client.on("message", async (topic, message) => {
+    const hash_subQuery = topic.split("/")[1];
+    if (!expectedSubQueries.has(hash_subQuery)) return;
+
+    console.log(`Received message from ${topic}:`, message.toString());
+    receivedSubQueries.add(hash_subQuery);
+
+    // Store the latest payload per subquery
+    finalResults.set(hash_subQuery, [JSON.parse(message.toString())]);
+
+    if (receivedSubQueries.size === expectedSubQueries.size && !aggregationComplete) {
+        aggregationComplete = true;
+        console.log("All expected subqueries have sent one message. Aggregating...");
+
+        const allResults: Record<string, any[]> = {};
+        for (const [subQueryHash, results] of finalResults.entries()) {
+            allResults[subQueryHash] = results;
+        }
+
+        await this.executeR2ROperator(allResults);
+        rsp_client.end(); // optional clean disconnect
+    }
+});
+
+
+        // // Single message handler for all topics
+        // rsp_client.on("message", async (topic, message) => {
+        //     if (!topic.startsWith("chunked/")) return;
+
+        //     const hash_subQuery = topic.split("/")[1];
+        //     if (!expectedSubQueries.has(hash_subQuery)) return;
+
+        //     console.log(`Received message on ${topic}:`, message.toString());
+        //     const payload = JSON.parse(message.toString());
+
+        //     if (!partialResults.has(hash_subQuery)) {
+        //         partialResults.set(hash_subQuery, []);
+        //     }
+
+        //     partialResults.get(hash_subQuery)?.push(payload);
+        //     const chunkArray = partialResults.get(hash_subQuery);
+
+        //     if (chunkArray && chunkArray.length === chunksRequired) {
+        //         console.log(`Received all chunks for ${hash_subQuery}`);
+        //         finalResults.set(hash_subQuery, chunkArray);
+        //         partialResults.delete(hash_subQuery);
+        //     }
+
+        //     const allComplete = [...expectedSubQueries].every((q) => finalResults.has(q));
+
+        //     if (allComplete && !aggregationComplete) {
+        //         aggregationComplete = true;
+        //         console.log("All subqueries have sent complete data. Aggregating...");
+
+        //         const allResults: Record<string, any[]> = {};
+        //         for (const [subQueryHash, results] of finalResults.entries()) {
+        //             allResults[subQueryHash] = results;
+        //         }
+
+        //         await this.executeR2ROperator(allResults);
+        //         rsp_client.end(); // Clean disconnect after processing
+        //     }
+        // });
+    });
+}
+
 
 
     async executeR2ROperator(allResults: Record<string, any[]>): Promise<void> {
-        console.log(`Executing the R2R Operator with results:`, allResults);        
+        console.log(`Executing the R2R Operator with results:`, allResults);
+        process.exit(0);
     }
 
     async initializeSubQueryProcesses(): Promise<void> {
+        console.log(`Initializing subquery processes.`);
         const chunkSize = this.findGCDChunk(this.subQueries, this.outputQuery);
         console.log(`Calculated GCD Chunk Size: ${chunkSize}`);
         this.chunkGCD = chunkSize;
@@ -168,7 +211,6 @@ export class StreamingQueryChunkAggregatorOperator {
                 });
 
             }
-
 
         } else {
             console.error("Failed to find a valid chunk size for the aggregation.");

@@ -1,6 +1,6 @@
 import { RDFStream, RSPEngine, RSPQLParser } from "rsp-js";
 import { EventEmitter } from "events";
-import { DataFactory } from "n3";
+const { DataFactory } = require("n3");
 import { v4 as uuidv4 } from 'uuid';
 import { hash_string_md5, turtleStringToStore } from "../util/Util";
 const mqtt = require('mqtt');
@@ -12,23 +12,54 @@ const mqtt = require('mqtt');
 export class RSPAgent {
 
     public query: string;
-    public rstream_topic: string;
+    public r2s_topic: string;
     public rstream_emitter: EventEmitter;
     public rsp_engine: RSPEngine;
     public rspql_parser: RSPQLParser;
+    public http_server_location: string;
 
     /**
      *
      * @param query
-     * @param rstream_topic
+     * @param r2s_topic
      */
-    constructor(query: string, rstream_topic: string) {
+    constructor(query: string, r2s_topic: string) {
         this.query = query;
-        this.rstream_topic = rstream_topic;
+        this.r2s_topic = r2s_topic;
         this.rspql_parser = new RSPQLParser();
         this.rsp_engine = new RSPEngine(query);
         this.rstream_emitter = this.rsp_engine.register();
+        this.http_server_location = "http://localhost:8080/";
+        this.registerToQueryRegistry();
+        this.subscribeRStream();
 
+
+    }
+
+    public async registerToQueryRegistry() {
+        console.log(`Registering query: ${this.query} to the query registry.`);
+        const register_location = `${this.http_server_location}register`;
+        const request = await fetch(register_location, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                rspql_query: this.query,
+                r2s_topic: this.r2s_topic,
+                data_topic: this.r2s_topic,
+                id: hash_string_md5(this.query)
+            })
+        });
+        if (!request.ok) {
+            throw new Error(`Failed to register query: ${this.query}. Status: ${request.status}`);
+        }
+        const response = await request.json();
+        if (response.error) {
+            throw new Error(`Error registering query: ${response.error}`);
+        }
+        console.log(`Successfully registered query: ${this.query}`);
+        return response;
     }
 
     /**
@@ -62,7 +93,7 @@ export class RSPAgent {
                     const timestamp = latest_event_store.getQuads(null, DataFactory.namedNode("https://saref.etsi.org/core/hasTimestamp"), null, null)[0].object.value;
                     const timestamp_epoch = Date.parse(timestamp);
                     if (rsp_stream_object) {
-
+                        await this.add_event_store_to_rsp_engine(latest_event_store, [rsp_stream_object], timestamp_epoch);
                     }
                 } catch (error) {
                     console.error(`Error processing message from stream ${stream_name}:`, error);
@@ -102,8 +133,9 @@ export class RSPAgent {
         const query_hash = hash_string_md5(this.query);
 
         this.rstream_emitter.on("RStream", async (object: any) => {
-            if (!object || object.bindings) {
+            if (!object || !object.bindings) {
                 console.log(`No bindings found in the RStream object.`);
+                process.exit(1);
                 return;
             }
 
@@ -112,11 +144,12 @@ export class RSPAgent {
             for (const item of iterables) {
                 const aggregation_event_timestamp = new Date().getTime();
                 const data = item.value;
-
+                console.log(data);
+                
                 const aggregation_event = this.generate_aggregation_event(data, aggregation_event_timestamp);
 
                 const aggregation_object_string = JSON.stringify(aggregation_event);
-                rstream_publisher.publish(this.rstream_topic, aggregation_object_string);
+                rstream_publisher.publish(this.r2s_topic, aggregation_object_string);
             }
         });
     }
@@ -135,6 +168,22 @@ export class RSPAgent {
     `;
         return aggregation_event.trim();
 
+    }
+
+
+    public async add_event_store_to_rsp_engine(event_store: any, stream_name: RDFStream[], timestamp: number) {
+        stream_name.forEach(async (stream: RDFStream) => {
+            const quads = event_store.getQuads(null, null, null, null);
+            for (const quad of quads) {
+                const quadWithGraph = DataFactory.quad(
+                    quad.subject,
+                    quad.predicate,
+                    quad.object,
+                    DataFactory.namedNode(stream_name)
+                );
+                stream.add(quadWithGraph, timestamp);
+            }
+        });
     }
 
 
