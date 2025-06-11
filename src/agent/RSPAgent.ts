@@ -1,4 +1,5 @@
-import { RDFStream, RSPEngine, RSPQLParser } from "rsp-js";
+import { RDFStream, RSPEngine } from "rsp-js";
+import { RSPQLParser } from "hive-thought-rewriter";
 import { EventEmitter } from "events";
 const { DataFactory } = require("n3");
 import { v4 as uuidv4 } from 'uuid';

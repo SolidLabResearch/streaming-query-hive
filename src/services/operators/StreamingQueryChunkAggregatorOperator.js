@@ -187,33 +187,33 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
                                 var mqttTopic = topicsOfProcesses_1[_i];
                                 _loop_1(mqttTopic);
                             }
-                            // Add catch-all message logger for debugging
-                            rsp_client.on("message", function (topic, message) {
-                                console.log("ANY MESSAGE RECEIVED:", topic, message.toString());
-                            });
                             // Data structure to collect all chunks
                             var allChunks = [];
                             var chunksRequired = Math.ceil(outputQueryWidth / _this.chunkGCD) * _this.subQueries.length;
                             console.log("Chunks required for aggregation: ".concat(chunksRequired));
                             console.log("Output Query Width: ".concat(outputQueryWidth, ", Chunk GCD: ").concat(_this.chunkGCD, ", SubQueries Length: ").concat(_this.subQueries.length));
-                            rsp_client.on("message", function (topic, message) { return __awaiter(_this, void 0, void 0, function () {
+                            rsp_client.on("message", function (topic, message) {
+                                allChunks.push(message.toString());
+                            });
+                            // Run aggregation every this.chunkGCD milliseconds
+                            setInterval(function () { return __awaiter(_this, void 0, void 0, function () {
                                 return __generator(this, function (_a) {
                                     switch (_a.label) {
                                         case 0:
-                                            console.log("ANY MESSAGE RECEIVED:", topic, message.toString());
-                                            allChunks.push(message.toString()); // or JSON.parse(message.toString()) if you want parsed objects
-                                            if (!(allChunks.length >= chunksRequired)) return [3 /*break*/, 2];
-                                            console.log("Received enough chunks. Aggregating and triggering R2R...");
-                                            return [4 /*yield*/, this.executeR2ROperator(allChunks.slice(0, chunksRequired))];
+                                            if (!(allChunks.length > 0)) return [3 /*break*/, 2];
+                                            console.log("Interval reached. Aggregating and triggering R2R...");
+                                            return [4 /*yield*/, this.executeR2ROperator(allChunks)];
                                         case 1:
                                             _a.sent();
-                                            // Remove used chunks for next window
-                                            allChunks.splice(0, chunksRequired);
-                                            _a.label = 2;
-                                        case 2: return [2 /*return*/];
+                                            allChunks = [];
+                                            return [3 /*break*/, 3];
+                                        case 2:
+                                            console.log("Interval reached, but no chunks to aggregate.");
+                                            _a.label = 3;
+                                        case 3: return [2 /*return*/];
                                     }
                                 });
-                            }); });
+                            }); }, outputQuerySlide);
                         });
                         return [2 /*return*/];
                 }
@@ -466,6 +466,9 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
             variable = '?' + variable;
         }
         return "SELECT (".concat(aggregationFunction, "(").concat(variable, ") AS ?result) WHERE { ?s ?p ").concat(variable, " }");
+    };
+    StreamingQueryChunkAggregatorOperator.prototype.sleep = function (ms) {
+        return new Promise(function (resolve) { return setTimeout(resolve, ms); });
     };
     return StreamingQueryChunkAggregatorOperator;
 }());

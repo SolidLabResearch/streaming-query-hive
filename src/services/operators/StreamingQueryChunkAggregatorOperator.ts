@@ -133,30 +133,27 @@ export class StreamingQueryChunkAggregatorOperator {
                     }
                 });
             }
-            // Add catch-all message logger for debugging
-            rsp_client.on("message", (topic, message) => {
-                console.log("ANY MESSAGE RECEIVED:", topic, message.toString());
-            });
 
             // Data structure to collect all chunks
-            const allChunks: any[] = [];
+            let allChunks: any[] = [];
             const chunksRequired = Math.ceil(outputQueryWidth / this.chunkGCD) * this.subQueries.length;
             console.log(`Chunks required for aggregation: ${chunksRequired}`);
             console.log(`Output Query Width: ${outputQueryWidth}, Chunk GCD: ${this.chunkGCD}, SubQueries Length: ${this.subQueries.length}`);
-            
-            
 
-            rsp_client.on("message", async (topic, message) => {
-                console.log("ANY MESSAGE RECEIVED:", topic, message.toString());
-                allChunks.push(message.toString()); // or JSON.parse(message.toString()) if you want parsed objects
-
-                if (allChunks.length >= chunksRequired) {
-                    console.log("Received enough chunks. Aggregating and triggering R2R...");
-                    await this.executeR2ROperator(allChunks.slice(0, chunksRequired));
-                    // Remove used chunks for next window
-                    allChunks.splice(0, chunksRequired);
-                }
+            rsp_client.on("message", (topic, message) => {
+                allChunks.push(message.toString());
             });
+
+            // Trigger the aggregation window every outputQuerySlide milliseconds
+            setInterval(async () => {
+                if (allChunks.length > 0) {
+                    console.log("Interval reached. Aggregating and triggering R2R...");
+                    await this.executeR2ROperator(allChunks);
+                    allChunks = [];
+                } else {
+                    console.log("Interval reached, but no chunks to aggregate.");
+                }
+            }, outputQuerySlide);
 
         });
     }
@@ -180,10 +177,9 @@ For example, the allResults object might look like this:
   ]
         */
         const resultString = chunks.map(chunk => JSON.parse(chunk)).join('\n');
-  const store = new N3.Store();     
+        const store = new N3.Store();
         try {
             const parser = new N3.Parser();
-          
 
             const quads = parser.parse(resultString); // parse returns array of quads
             store.addQuads(quads); // add all quads to store
@@ -411,6 +407,10 @@ For example, the allResults object might look like this:
         }
 
         return `SELECT (${aggregationFunction}(${variable}) AS ?result) WHERE { ?s ?p ${variable} }`;
+    }
+
+    sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
 

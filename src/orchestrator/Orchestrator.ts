@@ -79,7 +79,7 @@ export class Orchestrator {
             return;
         }
 
-        this.beeKeeper.executeQuery(this.registeredQuery, "registered_query_topic");
+        this.beeKeeper.executeQuery(this.registeredQuery, "output");
         console.log(`Running registered query: ${this.registeredQuery}`);
 
     }

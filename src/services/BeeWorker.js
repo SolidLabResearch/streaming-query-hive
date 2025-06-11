@@ -37,291 +37,216 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 exports.__esModule = true;
 exports.BeeWorker = void 0;
-var rspql_containment_checker_1 = require("rspql-containment-checker");
 var hive_thought_rewriter_1 = require("hive-thought-rewriter");
-var StreamingQueryChunkAggregatorOperator_1 = require("./operators/StreamingQueryChunkAggregatorOperator");
+var rspql_containment_checker_1 = require("rspql-containment-checker");
 var Util_1 = require("../util/Util");
-/**
- */
+var StreamingQueryChunkAggregatorOperator_1 = require("./operators/StreamingQueryChunkAggregatorOperator");
 var BeeWorker = /** @class */ (function () {
-    /**
-     *
-     */
     function BeeWorker() {
-        this.interval = null;
         this.containmentChecker = new rspql_containment_checker_1.ContainmentChecker();
         this.queryCombiner = new hive_thought_rewriter_1.QueryCombiner();
+        this.queryFetchLocation = "http://localhost:8080/fetchQueries";
         var query = process.env.QUERY;
         var r2s_topic = process.env.TOPIC;
         if (!query || !r2s_topic) {
-            console.error("Missing the Query or the R2S topic where the results should be published.");
+            throw new Error("Missing required environment variables");
             process.exit(1);
         }
         this.query = query;
         this.r2s_topic = r2s_topic;
-        console.log("Started a Bee Worker for the Query");
+        this.streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAggregatorOperator_1.StreamingQueryChunkAggregatorOperator(this.query);
+        console.log("BeeWorker initialized with query: ".concat(this.query, " and topic: ").concat(this.r2s_topic));
         this.process();
     }
     BeeWorker.prototype.process = function () {
         return __awaiter(this, void 0, void 0, function () {
-            var fetchLocation, executingQueries, rspql_queries, parsed_queries, _i, _a, _b, id, rspql_query, streamingQueryChunkAggregatorOperator, query1, query2, query3;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
+            var existingQueries, extractedQueries, containedQueries, _i, containedQueries_1, containedQuery, combinedQuery, isValid, _a, containedQueries_2, containedQuery;
+            return __generator(this, function (_b) {
+                switch (_b.label) {
                     case 0:
-                        console.log("this.process() called with query: ".concat(this.query));
-                        fetchLocation = "http://localhost:8080/fetchQueries";
-                        return [4 /*yield*/, this.fetchExistingQueries(fetchLocation)];
+                        console.log("proces() method is called");
+                        return [4 /*yield*/, this.fetchExistingQueries(this.queryFetchLocation)];
                     case 1:
-                        executingQueries = _c.sent();
-                        rspql_queries = [];
-                        console.log("Executing Queries: ".concat(executingQueries));
-                        parsed_queries = JSON.parse(executingQueries);
-                        if (!parsed_queries || Object.keys(parsed_queries).length === 0) {
-                            console.error("No executing queries found or the fetch operation failed.");
-                            return [2 /*return*/];
-                        }
-                        for (_i = 0, _a = Object.entries(parsed_queries); _i < _a.length; _i++) {
-                            _b = _a[_i], id = _b[0], rspql_query = _b[1];
-                            console.log("Found executing query with ID: ".concat(id));
-                            if (typeof rspql_query === "string") {
-                                rspql_queries.push(rspql_query);
-                                console.log("RSPQL Query: ".concat(rspql_query));
-                            }
-                            else {
-                                console.warn("Skipping non-string rspql_query for ID: ".concat(id));
-                            }
-                        }
-                        console.log("Executing Queries: ".concat(executingQueries));
-                        if (!executingQueries) {
-                            console.error("No executing queries found or the fetch operation failed.");
-                            return [2 /*return*/];
-                        }
-                        streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAggregatorOperator_1.StreamingQueryChunkAggregatorOperator(this.query);
-                        query1 = "\n            PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgX)\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 60000 STEP 60000]\nWHERE {\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .\n    }\n}\n    ";
-                        query2 = "\n                PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgY)\nFROM NAMED WINDOW :w2 ON STREAM mqtt_broker:accY [RANGE 60000 STEP 60000]\nWHERE {\n    WINDOW :w2 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .\n    }\n}";
-                        query3 = "\n                    PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o3) AS ?avgZ)\nFROM NAMED WINDOW :w3 ON STREAM mqtt_broker:accZ [RANGE 60000 STEP 60000]\nWHERE {\n    WINDOW :w3 {\n        ?s saref:hasValue ?o3 .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.z .\n    }\n}\n    ";
-                        streamingQueryChunkAggregatorOperator.addSubQuery(query1);
-                        streamingQueryChunkAggregatorOperator.addSubQuery(query2);
-                        streamingQueryChunkAggregatorOperator.addSubQuery(query3);
-                        console.log("About to call init()");
-                        return [4 /*yield*/, streamingQueryChunkAggregatorOperator.init()];
+                        existingQueries = _b.sent();
+                        return [4 /*yield*/, this.extractQueriesWithTopics(JSON.parse(existingQueries))];
                     case 2:
-                        _c.sent();
-                        streamingQueryChunkAggregatorOperator.handleAggregation();
-                        return [2 /*return*/];
+                        extractedQueries = _b.sent();
+                        return [4 /*yield*/, this.findContainedQueries(extractedQueries)];
+                    case 3:
+                        containedQueries = _b.sent();
+                        console.log("Found ".concat(containedQueries.length, " contained queries."));
+                        if (!(containedQueries.length > 0)) return [3 /*break*/, 8];
+                        for (_i = 0, containedQueries_1 = containedQueries; _i < containedQueries_1.length; _i++) {
+                            containedQuery = containedQueries_1[_i];
+                            this.queryCombiner.addQuery(containedQuery);
+                        }
+                        this.queryCombiner.combine();
+                        console.log("Combined query: ".concat(this.queryCombiner.ParsedToString(this.queryCombiner.combine())));
+                        combinedQuery = this.queryCombiner.ParsedToString(this.queryCombiner.combine());
+                        return [4 /*yield*/, this.validateQueryContainment(this.query, combinedQuery)];
+                    case 4:
+                        isValid = _b.sent();
+                        if (!isValid) return [3 /*break*/, 6];
+                        for (_a = 0, containedQueries_2 = containedQueries; _a < containedQueries_2.length; _a++) {
+                            containedQuery = containedQueries_2[_a];
+                            this.streamingQueryChunkAggregatorOperator.addSubQuery(containedQuery);
+                        }
+                        return [4 /*yield*/, this.streamingQueryChunkAggregatorOperator.init()];
+                    case 5:
+                        _b.sent();
+                        this.streamingQueryChunkAggregatorOperator.handleAggregation();
+                        return [3 /*break*/, 7];
+                    case 6:
+                        console.log("The subqueries are contained but however the combined query cannot be utilized to make the original registered query.");
+                        _b.label = 7;
+                    case 7: return [3 /*break*/, 9];
+                    case 8:
+                        console.log("There is no containment relationship between the query registered in the Bee and the existing queries run by the RSP Agents.");
+                        _b.label = 9;
+                    case 9: return [2 /*return*/];
                 }
             });
         });
     };
-    /**
-     *
-     */
-    BeeWorker.prototype.processAgentStreams = function () {
+    BeeWorker.prototype.findContainedQueries = function (extractedQueries) {
         return __awaiter(this, void 0, void 0, function () {
-            var fetchLocation, executingQueries, rspql_queries, parsed_queries, _i, _a, _b, id, rspql_query, containedQueries, registeredQuery;
-            return __generator(this, function (_c) {
-                switch (_c.label) {
-                    case 0:
-                        console.log("Finding if there are existing queries with RSP Agents being processed which are contained in the query of the Bee Worker");
-                        fetchLocation = "http://localhost:8080/fetchQueries";
-                        return [4 /*yield*/, this.fetchExistingQueries(fetchLocation)];
-                    case 1:
-                        executingQueries = _c.sent();
-                        rspql_queries = [];
-                        console.log("Executing Queries: ".concat(executingQueries));
-                        parsed_queries = JSON.parse(executingQueries);
-                        if (!parsed_queries || Object.keys(parsed_queries).length === 0) {
-                            console.error("No executing queries found or the fetch operation failed.");
-                            return [2 /*return*/];
-                        }
-                        for (_i = 0, _a = Object.entries(parsed_queries); _i < _a.length; _i++) {
-                            _b = _a[_i], id = _b[0], rspql_query = _b[1];
-                            console.log("Found executing query with ID: ".concat(id));
-                            if (typeof rspql_query === "string") {
-                                rspql_queries.push(rspql_query);
-                                console.log("RSPQL Query: ".concat(rspql_query));
-                            }
-                            else {
-                                console.warn("Skipping non-string rspql_query for ID: ".concat(id));
-                            }
-                        }
-                        console.log("Executing Queries: ".concat(executingQueries));
-                        if (!executingQueries) {
-                            console.error("No executing queries found or the fetch operation failed.");
-                            return [2 /*return*/];
-                        }
-                        return [4 /*yield*/, this.findContainedQueries(rspql_queries, this.query)];
-                    case 2:
-                        containedQueries = _c.sent();
-                        if (containedQueries) {
-                            // Check which queries can be reused
-                            // Rewriting and combining the queries
-                            // for (const [id, rspql_query] of containedQueries) {
-                            //     this.queryCombiner.addQuery(rspql_query);
-                            // }
-                            // const combined_query = this.queryCombiner.combine();
-                            // const combined_query_string = combined_query.toString();
-                            // Now we have a combined query that can be used to process the streams
-                            // Time to do a completeness and soundness check
-                            // const is_complete = await this.completenessCheck(combined_query_string, this.query);
-                            // const is_sound = await this.soundnessCheck(combined_query_string, this.query);
-                            // if (is_complete && is_sound) {
-                            console.log('The combined query is complete and sound');
-                            registeredQuery = "\n                PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgX) (AVG(?o) AS ?avgY)\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 120000 STEP 30000]\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accY [RANGE 120000 STEP 30000]\nWHERE {\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .\n    }\n    UNION\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .\n    }\n        \n}\n    ";
-                            // this.streamingQueryChunkAggregatorOperator.setOutputQuery(combined_query_string);
-                            // streamingQueryChunkAggregatorOperator.setOutputQuery(registeredQuery);            // Handle the case where the combined query is complete and sound
-                            // this.streamingQueryChunkAggregatorOperator.init();
-                            // This means that the Bee Worker can start processing the combined query
-                            // and reuse the existing queries from the RSP Agents
-                            // console.log(`Combined Query: ${combined_query_string}`);
-                            // }
-                            // else {
-                            // console.log('There was partial containment of the queries, however the combined query is not complete or sound');
-                            // Handle the case where the combined query is not complete or sound
-                            // }
-                        }
-                        else {
-                            console.log("There are no existing queries by the RSP Agents that are contained in the query of the Bee Worker");
-                            // Handle the case where there are no contained queries 
-                            // Therefore the Bee Worker can start processing the entire query by itself rather than reusing the existing queries
-                        }
-                        return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     *
-     * @param fetchLocation
-     */
-    BeeWorker.prototype.fetchExistingQueries = function (fetchLocation) {
-        return __awaiter(this, void 0, void 0, function () {
-            var response, executingQueries;
+            var containedQueries, _i, extractedQueries_1, extractedQuery, queryY, queryZ, isContainedX, isContainedY, isContainedZ, isContained;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, fetch(fetchLocation, {
-                            'method': 'GET'
-                        })];
+                    case 0:
+                        containedQueries = [];
+                        _i = 0, extractedQueries_1 = extractedQueries;
+                        _a.label = 1;
+                    case 1:
+                        if (!(_i < extractedQueries_1.length)) return [3 /*break*/, 6];
+                        extractedQuery = extractedQueries_1[_i];
+                        this.query = this.removeAggregationFunctions(this.query);
+                        extractedQuery.rspql_query = this.removeAggregationFunctions(extractedQuery.rspql_query);
+                        queryY = (0, Util_1.generateQuery)(['y', 'x', 'z']);
+                        queryZ = (0, Util_1.generateQuery)(['z', 'y', 'x']);
+                        return [4 /*yield*/, this.containmentChecker.checkContainment(this.query, extractedQuery.rspql_query)];
+                    case 2:
+                        isContainedX = _a.sent();
+                        return [4 /*yield*/, this.containmentChecker.checkContainment(queryY, extractedQuery.rspql_query)];
+                    case 3:
+                        isContainedY = _a.sent();
+                        return [4 /*yield*/, this.containmentChecker.checkContainment(queryZ, extractedQuery.rspql_query)];
+                    case 4:
+                        isContainedZ = _a.sent();
+                        isContained = isContainedX || isContainedY || isContainedZ;
+                        if (isContained) {
+                            console.log("Query \"".concat(extractedQuery.rspql_query, "\" is contained in the main query."));
+                            containedQueries.push(extractedQuery.rspql_query);
+                        }
+                        else {
+                            console.log("Query \"".concat(extractedQuery.rspql_query, "\" is not contained in the main query."));
+                        }
+                        _a.label = 5;
+                    case 5:
+                        _i++;
+                        return [3 /*break*/, 1];
+                    case 6: return [2 /*return*/, containedQueries];
+                }
+            });
+        });
+    };
+    BeeWorker.prototype.fetchExistingQueries = function (location) {
+        return __awaiter(this, void 0, void 0, function () {
+            var response, queries;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0:
+                        if (!location) {
+                            throw new Error("Location for fetching queries is not specified");
+                        }
+                        return [4 /*yield*/, fetch(location, {
+                                'method': 'GET'
+                            })];
                     case 1:
                         response = _a.sent();
                         return [4 /*yield*/, response.text()];
                     case 2:
-                        executingQueries = _a.sent();
-                        console.log("Fetched existing queries from ".concat(fetchLocation, ": ").concat(executingQueries));
-                        if (!executingQueries) {
-                            console.error("No executing queries found or the fetch operation failed.");
-                            return [2 /*return*/, ''];
+                        queries = _a.sent();
+                        if (!queries) {
+                            throw new Error("No queries found at the specified location");
                         }
-                        console.log("Executing Queries: ".concat(executingQueries));
-                        return [2 /*return*/, executingQueries];
+                        return [2 /*return*/, queries];
                 }
             });
         });
     };
-    /**
-     *
-     */
-    BeeWorker.prototype.validateQueryContainment = function () {
+    BeeWorker.prototype.extractQueriesWithTopics = function (data) {
         return __awaiter(this, void 0, void 0, function () {
-            var query_to_check;
+            var extractedQueries, key, entry;
             return __generator(this, function (_a) {
-                // First Rewrite the SubQueries
-                console.log("Rewriting the different subQueries to check for containment");
-                if (!this.query) {
-                    console.error("Query is not defined");
-                    return [2 /*return*/];
+                extractedQueries = [];
+                for (key in data) {
+                    if (data.hasOwnProperty(key)) {
+                        entry = data[key];
+                        if (entry.rspql_query && entry.r2s_topic) {
+                            extractedQueries.push({
+                                rspql_query: entry.rspql_query,
+                                r2s_topic: entry.r2s_topic
+                            });
+                        }
+                    }
                 }
-                query_to_check = this.query;
-                console.log("Query to check for containment: ".concat(query_to_check));
-                this.rewriteSubQueries();
-                return [2 /*return*/];
+                return [2 /*return*/, extractedQueries];
             });
         });
     };
-    /**
-     *
-     */
-    BeeWorker.prototype.rewriteSubQueries = function () {
+    BeeWorker.prototype.validateQueryContainment = function (queryOne, queryTwo) {
         return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                console.log("Rewriting SubQueries for the Query: ".concat(this.query));
-                return [2 /*return*/];
-            });
-        });
-    };
-    /**
-     *
-     * @param queryOne
-     * @param queryTwo
-     */
-    BeeWorker.prototype.completenessCheck = function (queryOne, queryTwo) {
-        return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                return [2 /*return*/, true]; // Placeholder for completeness check logic
-            });
-        });
-    };
-    /**
-     *
-     * @param queryOne
-     * @param queryTwo
-     */
-    BeeWorker.prototype.soundnessCheck = function (queryOne, queryTwo) {
-        return __awaiter(this, void 0, void 0, function () {
-            return __generator(this, function (_a) {
-                return [2 /*return*/, true]; // Placeholder for soundness check logic
-            });
-        });
-    };
-    /**
-     *
-     */
-    BeeWorker.prototype.checkWindowParametersForQueries = function () {
-        return __awaiter(this, void 0, void 0, function () {
-            var existingQueries;
+            var isComplete, isSound;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, this.fetchExistingQueries("http://localhost:8080/fetchQueries")];
+                    case 0:
+                        // Completeness Check for query containment
+                        queryOne = this.removeAggregationFunctions(queryOne);
+                        queryTwo = this.removeAggregationFunctions(queryTwo);
+                        return [4 /*yield*/, this.containmentChecker.checkContainment(queryOne, queryTwo)];
                     case 1:
-                        existingQueries = _a.sent();
-                        console.log("Existing Queries: ".concat(existingQueries));
+                        isComplete = _a.sent();
+                        return [4 /*yield*/, this.containmentChecker.checkContainment(queryTwo, queryOne)];
+                    case 2:
+                        isSound = _a.sent();
+                        if (isComplete && isSound) {
+                            console.log("Query \"".concat(queryOne, "\" is contained in \"").concat(queryTwo, "\" and vice versa."));
+                            return [2 /*return*/, true];
+                        }
+                        else if (isComplete) {
+                            console.log("There is a completeness relationship between \"".concat(queryOne, "\" and \"").concat(queryTwo, "\""));
+                            return [2 /*return*/, false];
+                        }
+                        else if (isSound) {
+                            console.log("There is a soundness relationship between \"".concat(queryOne, "\" and \"").concat(queryTwo, "\""));
+                            return [2 /*return*/, false];
+                        }
+                        else {
+                            console.log("Query \"".concat(queryOne, "\" is not contained in \"").concat(queryTwo, "\" and vice versa."));
+                            return [2 /*return*/, true];
+                        }
                         return [2 /*return*/];
                 }
             });
         });
     };
-    /**
-     *
-     * @param executingQueries
-     * @param query
-     */
-    BeeWorker.prototype.findContainedQueries = function (executingQueries, query) {
-        return __awaiter(this, void 0, void 0, function () {
-            var test_map, query1, query2;
-            return __generator(this, function (_a) {
-                test_map = new Map();
-                query1 = "\n            PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgX)\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 60000 STEP 60000]\nWHERE {\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .\n    }\n}\n    ";
-                query2 = "\n                PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgX)\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accY [RANGE 60000 STEP 60000]\nWHERE {\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .\n    }\n}\n    ";
-                test_map.set((0, Util_1.hash_string_md5)(query1), query1);
-                test_map.set((0, Util_1.hash_string_md5)(query2), query2);
-                return [2 /*return*/, test_map]; // Placeholder for contained queries logic
-            });
-        });
+    BeeWorker.prototype.removeAggregationFunctions = function (query) {
+        // This regex will match any aggregation function like AVG(?x) AS ?alias
+        // Replace any function like AVG(?x) AS ?alias with just ?x
+        return query.replace(/\(\s*\w+\s*\(\s*\?(\w+)\s*\)\s+AS\s+\?\w+\s*\)/g, '?$1');
     };
-    /**
-     *
-     */
     BeeWorker.prototype.stop = function () {
     };
     return BeeWorker;
 }());
 exports.BeeWorker = BeeWorker;
-var worker = new BeeWorker();
+var beeWorker = new BeeWorker();
 process.on("SIGINT", function () {
-    worker.stop();
+    beeWorker.stop();
     process.exit(0);
 });
 process.on("SIGTERM", function () {
-    worker.stop();
+    beeWorker.stop();
     process.exit(0);
 });

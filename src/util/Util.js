@@ -36,7 +36,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 exports.__esModule = true;
-exports.hash_string_md5 = exports.stringToStore = exports.storeToString = exports.turtleStringToStore = exports.lcm = void 0;
+exports.generateQuery = exports.hash_string_md5 = exports.stringToStore = exports.storeToString = exports.turtleStringToStore = exports.lcm = void 0;
 var n3_1 = require("n3");
 var crypto_1 = require("crypto");
 var rdfParser = require("rdf-parse")["default"];
@@ -119,3 +119,36 @@ function hash_string_md5(input_string) {
     return hash.digest('hex');
 }
 exports.hash_string_md5 = hash_string_md5;
+function generateQuery(order) {
+    if (order === void 0) { order = ['z', 'y', 'x']; }
+    var windowMappings = {
+        x: {
+            window: ':w1',
+            stream: 'mqtt_broker:accX',
+            variable: '?o',
+            property: 'dahccsensors:x',
+            subject: '?s'
+        },
+        y: {
+            window: ':w2',
+            stream: 'mqtt_broker:accY',
+            variable: '?o2',
+            property: 'dahccsensors:y',
+            subject: '?s2'
+        },
+        z: {
+            window: ':w3',
+            stream: 'mqtt_broker:accZ',
+            variable: '?o3',
+            property: 'dahccsensors:z',
+            subject: '?s3'
+        }
+    };
+    var windowClauses = order.map(function (axis) {
+        var _a = windowMappings[axis], window = _a.window, variable = _a.variable, property = _a.property, subject = _a.subject;
+        return "\n    { WINDOW ".concat(window, " {\n        ").concat(subject, " saref:hasValue ").concat(variable, " .\n        ").concat(subject, " saref:relatesToProperty ").concat(property, " .\n    }}");
+    }).join(' UNION');
+    var query = "\nPREFIX mqtt_broker: <mqtt://localhost:1883/>\nPREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \n\nREGISTER RStream <output> AS\nSELECT ?o ?o2 ?o3\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 120000 STEP 30000]\nFROM NAMED WINDOW :w2 ON STREAM mqtt_broker:accY [RANGE 120000 STEP 30000]\nFROM NAMED WINDOW :w3 ON STREAM mqtt_broker:accZ [RANGE 120000 STEP 30000]\nWHERE {\n    ".concat(windowClauses, "\n}\n");
+    return query;
+}
+exports.generateQuery = generateQuery;

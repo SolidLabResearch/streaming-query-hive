@@ -1,453 +1,193 @@
+import { QueryCombiner } from "hive-thought-rewriter";
 import { ContainmentChecker } from "rspql-containment-checker";
-import { QueryCombiner } from "hive-thought-rewriter"
-import { StreamingQueryChunkAggregatorOperator } from "./operators/StreamingQueryChunkAggregatorOperator";
-import { hash_string_md5 } from "../util/Util";
 import { ExtractedQuery, QueryMap } from "../util/Types";
+import { generateQuery } from "../util/Util";
+import { StreamingQueryChunkAggregatorOperator } from "./operators/StreamingQueryChunkAggregatorOperator";
 
-/**
- */
 export class BeeWorker {
 
+
     private query: string;
-    private r2s_topic: string | undefined;
-    private interval: NodeJS.Timeout | null = null;
+    private r2s_topic: string;
     private containmentChecker: ContainmentChecker;
     private queryCombiner: QueryCombiner;
-
-    /**
-     *
-     */
+    private queryFetchLocation: string;
+    private streamingQueryChunkAggregatorOperator: StreamingQueryChunkAggregatorOperator;
     constructor() {
         this.containmentChecker = new ContainmentChecker();
         this.queryCombiner = new QueryCombiner();
+        this.queryFetchLocation = "http://localhost:8080/fetchQueries";
         const query = process.env.QUERY;
         const r2s_topic = process.env.TOPIC;
-
         if (!query || !r2s_topic) {
-            console.error(`Missing the Query or the R2S topic where the results should be published.`);
+            throw new Error("Missing required environment variables");
             process.exit(1);
         }
-
         this.query = query;
         this.r2s_topic = r2s_topic;
-
-        console.log(`Started a Bee Worker for the Query`);
+        this.streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAggregatorOperator(this.query);
+        console.log(`BeeWorker initialized with query: ${this.query} and topic: ${this.r2s_topic}`);
         this.process();
     }
 
-
     async process() {
-        console.log(`this.process() called with query: ${this.query}`);
-        const fetchLocation = "http://localhost:8080/fetchQueries";
-        const executingQueries = await this.fetchExistingQueries(fetchLocation);
-        let rspql_queries: string[] = [];
-        console.log(`Executing Queries: ${executingQueries}`);
+        console.log(`proces() method is called`);
 
-        let parsed_queries = JSON.parse(executingQueries);
-        if (!parsed_queries || Object.keys(parsed_queries).length === 0) {
-            console.error(`No executing queries found or the fetch operation failed.`);
-            return;
+        const existingQueries = await this.fetchExistingQueries(this.queryFetchLocation);
+        const extractedQueries = await this.extractQueriesWithTopics(JSON.parse(existingQueries) as QueryMap);
+        const containedQueries = await this.findContainedQueries(extractedQueries);
+        console.log(`Found ${containedQueries.length} contained queries.`);
+
+        if (containedQueries.length > 0) {
+            for (const containedQuery of containedQueries) {
+                this.queryCombiner.addQuery(containedQuery);
+            }
+            this.queryCombiner.combine();
+            console.log(`Combined query: ${this.queryCombiner.ParsedToString(this.queryCombiner.combine())}`);
+            const combinedQuery = this.queryCombiner.ParsedToString(this.queryCombiner.combine());
+
+            const isValid = await this.validateQueryContainment(this.query, combinedQuery);
+            if (isValid) {
+                for (const containedQuery of containedQueries) {
+                    this.streamingQueryChunkAggregatorOperator.addSubQuery(containedQuery);
+                }
+
+                await this.streamingQueryChunkAggregatorOperator.init();
+                this.streamingQueryChunkAggregatorOperator.handleAggregation();
+            }
+            else {
+                console.log(`The subqueries are contained but however the combined query cannot be utilized to make the original registered query.`);
+            }
+
+
+        } else {
+            console.log("There is no containment relationship between the query registered in the Bee and the existing queries run by the RSP Agents.");
+
         }
-        for (const [id, rspql_query] of Object.entries(parsed_queries)) {
-            console.log(`Found executing query with ID: ${id}`);
-            if (typeof rspql_query === "string") {
-                rspql_queries.push(rspql_query);
-                console.log(`RSPQL Query: ${rspql_query}`);
-            } else {
-                console.warn(`Skipping non-string rspql_query for ID: ${id}`);
+
+    }
+
+    async findContainedQueries(extractedQueries: ExtractedQuery[]): Promise<string[]> {
+        const containedQueries: string[] = [];
+        for (const extractedQuery of extractedQueries) {
+            this.query = this.removeAggregationFunctions(this.query);
+            extractedQuery.rspql_query = this.removeAggregationFunctions(extractedQuery.rspql_query);
+            let queryY = generateQuery(['y', 'x', 'z']);
+            let queryZ = generateQuery(['z', 'y', 'x']);
+            const isContainedX = await this.containmentChecker.checkContainment(this.query, extractedQuery.rspql_query);
+
+            /**
+             * Note: Normally, the order of the UNIONs should not matter.
+             * However, there is a current bug in the containment checker that causes it to only consider
+             * the first query in the UNION. The bug is in the underlying SPeCS Containment Solver,
+             * which the RSPQL Containment Checker builds on.
+             *
+             * This is a workaround to check the containment for the other two queries in the UNION.
+             * Remove this workaround when the bug is fixed in the SPeCS Containment Solver.
+             *
+             * Read more about the bug here:
+             * https://kushbisen.top/assets/Working-Notes/Working-Note-001
+             */
+
+            const isContainedY = await this.containmentChecker.checkContainment(queryY, extractedQuery.rspql_query);
+            const isContainedZ = await this.containmentChecker.checkContainment(queryZ, extractedQuery.rspql_query);
+            const isContained = isContainedX || isContainedY || isContainedZ;
+            if (isContained) {
+                console.log(`Query "${extractedQuery.rspql_query}" is contained in the main query.`);
+                containedQueries.push(extractedQuery.rspql_query);
+            }
+            else {
+                console.log(`Query "${extractedQuery.rspql_query}" is not contained in the main query.`);
             }
         }
-        console.log(`Executing Queries: ${executingQueries}`);
-        if (!executingQueries) {
-            console.error(`No executing queries found or the fetch operation failed.`);
-            return;
+        return containedQueries;
+    }
+
+    async fetchExistingQueries(location: string): Promise<string> {
+        if (!location) {
+            throw new Error("Location for fetching queries is not specified");
         }
-        const streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAggregatorOperator(this.query);
-
-        const query1 = `
-            PREFIX mqtt_broker: <mqtt://localhost:1883/>
-    PREFIX saref: <https://saref.etsi.org/core/>
-PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
-PREFIX : <https://rsp.js> 
-REGISTER RStream <output> AS
-SELECT (AVG(?o) AS ?avgX)
-FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 60000 STEP 60000]
-WHERE {
-    WINDOW :w1 {
-        ?s saref:hasValue ?o .
-        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .
-    }
-}
-    `;
-        const query2 = `
-                PREFIX mqtt_broker: <mqtt://localhost:1883/>
-    PREFIX saref: <https://saref.etsi.org/core/>
-PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
-PREFIX : <https://rsp.js> 
-REGISTER RStream <output> AS
-SELECT (AVG(?o) AS ?avgY)
-FROM NAMED WINDOW :w2 ON STREAM mqtt_broker:accY [RANGE 60000 STEP 60000]
-WHERE {
-    WINDOW :w2 {
-        ?s saref:hasValue ?o .
-        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .
-    }
-}`;
-
-        const query3 = `
-                    PREFIX mqtt_broker: <mqtt://localhost:1883/>
-    PREFIX saref: <https://saref.etsi.org/core/>
-PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
-PREFIX : <https://rsp.js> 
-REGISTER RStream <output> AS
-SELECT (AVG(?o3) AS ?avgZ)
-FROM NAMED WINDOW :w3 ON STREAM mqtt_broker:accZ [RANGE 60000 STEP 60000]
-WHERE {
-    WINDOW :w3 {
-        ?s saref:hasValue ?o3 .
-        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.z .
-    }
-}
-    `;
-        streamingQueryChunkAggregatorOperator.addSubQuery(query1);
-        streamingQueryChunkAggregatorOperator.addSubQuery(query2);
-        streamingQueryChunkAggregatorOperator.addSubQuery(query3);
-
-        console.log("About to call init()");
-
-        await streamingQueryChunkAggregatorOperator.init();
-
-        streamingQueryChunkAggregatorOperator.handleAggregation();
-
-    }
-
-    /**
-     *
-     */
-    async processAgentStreams() {
-        console.log(`Finding if there are existing queries with RSP Agents being processed which are contained in the query of the Bee Worker`);
-        // Fetch the existing queries from the server
-        const fetchLocation = "http://localhost:8080/fetchQueries";
-        const executingQueries = await this.fetchExistingQueries(fetchLocation);
-        let rspql_queries: string[] = [];
-        console.log(`Executing Queries: ${executingQueries}`);
-
-        let parsed_queries = JSON.parse(executingQueries);
-        if (!parsed_queries || Object.keys(parsed_queries).length === 0) {
-            console.error(`No executing queries found or the fetch operation failed.`);
-            return;
-        }
-        for (const [id, rspql_query] of Object.entries(parsed_queries)) {
-            console.log(`Found executing query with ID: ${id}`);
-            if (typeof rspql_query === "string") {
-                rspql_queries.push(rspql_query);
-                console.log(`RSPQL Query: ${rspql_query}`);
-            } else {
-                console.warn(`Skipping non-string rspql_query for ID: ${id}`);
-            }
-        }
-        console.log(`Executing Queries: ${executingQueries}`);
-        if (!executingQueries) {
-            console.error(`No executing queries found or the fetch operation failed.`);
-            return;
-        }
-
-        // Check for containment of the existing queries with the new query
-        const containedQueries = await this.findContainedQueries(rspql_queries, this.query);
-
-        if (containedQueries) {
-            // Check which queries can be reused
-            // Rewriting and combining the queries
-            // for (const [id, rspql_query] of containedQueries) {
-            //     this.queryCombiner.addQuery(rspql_query);
-            // }
-            // const combined_query = this.queryCombiner.combine();
-            // const combined_query_string = combined_query.toString();
-
-            // Now we have a combined query that can be used to process the streams
-            // Time to do a completeness and soundness check
-
-            // const is_complete = await this.completenessCheck(combined_query_string, this.query);
-            // const is_sound = await this.soundnessCheck(combined_query_string, this.query);
-            // if (is_complete && is_sound) {
-            console.log('The combined query is complete and sound');
-            const registeredQuery = `
-                PREFIX mqtt_broker: <mqtt://localhost:1883/>
-    PREFIX saref: <https://saref.etsi.org/core/>
-PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
-PREFIX : <https://rsp.js> 
-REGISTER RStream <output> AS
-SELECT (AVG(?o) AS ?avgX) (AVG(?o) AS ?avgY)
-FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 120000 STEP 30000]
-FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accY [RANGE 120000 STEP 30000]
-WHERE {
-    WINDOW :w1 {
-        ?s saref:hasValue ?o .
-        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .
-    }
-    UNION
-    WINDOW :w1 {
-        ?s saref:hasValue ?o .
-        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .
-    }
-
-}
-    `;
-            // this.streamingQueryChunkAggregatorOperator.setOutputQuery(combined_query_string);
-            // streamingQueryChunkAggregatorOperator.setOutputQuery(registeredQuery);            // Handle the case where the combined query is complete and sound
-            // this.streamingQueryChunkAggregatorOperator.init();
-
-            // This means that the Bee Worker can start processing the combined query
-            // and reuse the existing queries from the RSP Agents
-            // console.log(`Combined Query: ${combined_query_string}`);
-            // }
-            // else {
-            // console.log('There was partial containment of the queries, however the combined query is not complete or sound');
-            // Handle the case where the combined query is not complete or sound
-            // }
-
-        }
-        else {
-            console.log(`There are no existing queries by the RSP Agents that are contained in the query of the Bee Worker`);
-            // Handle the case where there are no contained queries 
-            // Therefore the Bee Worker can start processing the entire query by itself rather than reusing the existing queries
-        }
-    }
-
-
-    /**
-     *
-     * @param fetchLocation
-     */
-    async fetchExistingQueries(fetchLocation: string) {
-        const response = await fetch(fetchLocation, {
-            'method': 'GET',
+        const response = await fetch(location, {
+            'method': 'GET'
         });
 
-        const executingQueries = await response.text();
-        console.log(`Fetched existing queries from ${fetchLocation}: ${executingQueries}`);
-        if (!executingQueries) {
-            console.error(`No executing queries found or the fetch operation failed.`);
-            return '';
+        const queries = await response.text();
+
+        if (!queries) {
+            throw new Error("No queries found at the specified location");
         }
 
-        return executingQueries;
+        return queries;
     }
 
-    async extractRspqlQueriesWithTopics(data: QueryMap): Promise<ExtractedQuery[]> {
-        const result: ExtractedQuery[] = [];
+    async extractQueriesWithTopics(data: QueryMap): Promise<ExtractedQuery[]> {
+        const extractedQueries: ExtractedQuery[] = [];
 
         for (const key in data) {
             if (data.hasOwnProperty(key)) {
                 const entry = data[key];
                 if (entry.rspql_query && entry.r2s_topic) {
-                    result.push({
-                        rspql_query: entry.rspql_query.trim(),
+                    extractedQueries.push({
+                        rspql_query: entry.rspql_query,
                         r2s_topic: entry.r2s_topic
                     });
                 }
             }
         }
 
-        return result;
+        return extractedQueries;
     }
 
+    async validateQueryContainment(queryOne: string, queryTwo: string): Promise<boolean> {
+        // Completeness Check for query containment
+        queryOne = this.removeAggregationFunctions(queryOne);
+        queryTwo = this.removeAggregationFunctions(queryTwo);
+        const isComplete = await this.containmentChecker.checkContainment(queryOne, queryTwo);
+        // Soundness Check for query containment
+        const isSound = await this.containmentChecker.checkContainment(queryTwo, queryOne);
 
-    /**
-     *
-     */
-    async validateQueryContainment() {
-        // First Rewrite the SubQueries
-        console.log(`Rewriting the different subQueries to check for containment`);
-
-        
-
-        if (!this.query) {
-            console.error(`Query is not defined`);
-            return;
+        if (isComplete && isSound) {
+            console.log(`Query "${queryOne}" is contained in "${queryTwo}" and vice versa.`);
+            return true;
         }
-        const query_to_check = this.query;
-        console.log(`Query to check for containment: ${query_to_check}`);
-
-        this.rewriteSubQueries();
-
-        // Check for Completeness and Soundness
-
-
-    }
-
-    /**
-     *
-     */
-    async rewriteSubQueries() {
-        console.log(`Rewriting SubQueries for the Query: ${this.query}`);
-
-
-    }
-
-
-    /**
-     *
-     * @param queryOne
-     * @param queryTwo
-     */
-    async completenessCheck(queryOne: string, queryTwo: string) {
-        return true; // Placeholder for completeness check logic
-        // Uncomment the following lines when the containment checker is implemented
-        // console.log(`Completeness Check between ${queryOne} and ${queryTwo}`);
-        // const is_complete = await this.containmentChecker.checkContainment(queryTwo, queryOne);
-        // if (is_complete) {
-        //     console.log(`Completeness Check passed`);
-        //     return true;
-        // } else {
-        //     console.log(`Completeness Check failed`);
-        //     return false;
-        // }
-    }
-
-    /**
-     *
-     * @param queryOne
-     * @param queryTwo
-     */
-    async soundnessCheck(queryOne: string, queryTwo: string) {
-        return true; // Placeholder for soundness check logic
-        // Uncomment the following lines when the containment checker is implemented
-        // console.log(`Soundness Check between ${queryOne} and ${queryTwo}`);
-        // const is_sound = await this.containmentChecker.checkContainment(queryOne, queryTwo);
-        // if (is_sound) {
-        //     console.log(`Soundness Check passed`);
-        //     return true;
-        // } else {
-        //     console.log(`Soundness Check failed`);
-        //     return false;
-        // }
-    }
-
-    /**
-     *
-     */
-    async checkWindowParametersForQueries() {
-        // Check for Window Parameters of each Query with the new Query
-        const existingQueries = await this.fetchExistingQueries("http://localhost:8080/fetchQueries");
-        const existingQueriesWithR2STopic = await this.extractRspqlQueriesWithTopics(JSON.parse(existingQueries));
-
-        console.log(`Existing Queries with R2S Topic: ${JSON.stringify(existingQueriesWithR2STopic)}`);
-        if (!existingQueriesWithR2STopic || existingQueriesWithR2STopic.length === 0) {
-            console.error(`No existing queries found or the fetch operation failed.`);
-            return;
+        else if (isComplete) {
+            console.log(`There is a completeness relationship between "${queryOne}" and "${queryTwo}"`);
+            return false;
         }
-        const containedQueriesMap = new Map<boolean, string>();
-        for (const { rspql_query, r2s_topic } of existingQueriesWithR2STopic) {
-            const containmentChecker = await this.containmentChecker.checkContainment(rspql_query, this.query);
-            if (containmentChecker) {
-                console.log(`Query ${rspql_query} is contained in the new query.`);
-                containedQueriesMap.set(true, rspql_query);
-            }
-            else {
-                console.log(`Query ${rspql_query} is not contained in the new query.`);
-                containedQueriesMap.set(false, rspql_query);
-            }
+        else if (isSound) {
+            console.log(`There is a soundness relationship between "${queryOne}" and "${queryTwo}"`);
+            return false;
+        }
+        else {
+            console.log(`Query "${queryOne}" is not contained in "${queryTwo}" and vice versa.`);
+            return true;
         }
     }
 
-
-    /**
-     *
-     * @param executingQueries
-     * @param query
-     */
-    async findContainedQueries(executingQueries: string[], query: string | undefined): Promise<Map<string, string> | undefined> {
-        const test_map = new Map<string, string>();
-        const query1 = `
-            PREFIX mqtt_broker: <mqtt://localhost:1883/>
-    PREFIX saref: <https://saref.etsi.org/core/>
-PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
-PREFIX : <https://rsp.js> 
-REGISTER RStream <output> AS
-SELECT (AVG(?o) AS ?avgX)
-FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 60000 STEP 60000]
-WHERE {
-    WINDOW :w1 {
-        ?s saref:hasValue ?o .
-        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .
-    }
-}
-    `;
-        const query2 = `
-                PREFIX mqtt_broker: <mqtt://localhost:1883/>
-    PREFIX saref: <https://saref.etsi.org/core/>
-PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
-PREFIX : <https://rsp.js> 
-REGISTER RStream <output> AS
-SELECT (AVG(?o) AS ?avgX)
-FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accY [RANGE 60000 STEP 60000]
-WHERE {
-    WINDOW :w1 {
-        ?s saref:hasValue ?o .
-        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .
-    }
-}
-    `;
-        test_map.set(hash_string_md5(query1), query1);
-        test_map.set(hash_string_md5(query2), query2);
-        return test_map; // Placeholder for contained queries logic
-
-
-        // if (!query) {
-        //     console.error(`Query is not defined`);
-        //     return;
-        // }
-        // if (!executingQueries) {
-        //     console.error(`Executing Queries are not defined`);
-        //     return;
-        // }
-        // console.log(`Finding Contained Queries`);
-        // console.log(`Executing Queries: ${executingQueries}`);
-        // console.log(`Query: ${query}`);
-        // const contained_queries: Map<string, string> = new Map();
-        // console.log(executingQueries);
-
-        // const executing_queries = JSON.parse(executingQueries);
-
-        // const queryList = Object.values(executing_queries).map((entry: any) => ({
-        //     id: entry.id,
-        //     rspql_query: entry.rspql_query,
-        // }));
-
-        // for (const { id, rspql_query } of queryList) {
-        //     console.log(`Checking Query Containment of Existing Queries to the Newly Registered Query`);
-        //     const containment_check = await this.containmentChecker.checkContainment(id, rspql_query);
-
-        //     if (containment_check) {
-        //         contained_queries.set(id, rspql_query);
-        //         console.log(`SubQuery with ${id} is contained in the Query`);
-        //     }
-        //     else {
-        //         console.log(`SubQuery with ${id} is not contained in the Query`);
-        //     }
-        // }
-        // return contained_queries;
+    removeAggregationFunctions(query: string): string {
+        // This regex will match any aggregation function like AVG(?x) AS ?alias
+        // Replace any function like AVG(?x) AS ?alias with just ?x
+        return query.replace(/\(\s*\w+\s*\(\s*\?(\w+)\s*\)\s+AS\s+\?\w+\s*\)/g, '?$1');
     }
 
 
-    /**
-     *
-     */
+
+
+
     stop() {
 
     }
-
 }
 
-const worker = new BeeWorker();
+const beeWorker = new BeeWorker();
 
 process.on("SIGINT", () => {
-    worker.stop();
+    beeWorker.stop();
     process.exit(0);
 });
 
 process.on("SIGTERM", () => {
-    worker.stop();
+    beeWorker.stop();
     process.exit(0);
 });
+
