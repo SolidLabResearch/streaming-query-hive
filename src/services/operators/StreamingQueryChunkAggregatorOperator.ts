@@ -134,25 +134,29 @@ export class StreamingQueryChunkAggregatorOperator {
                 });
             }
 
-            // Data structure to collect all chunks
-            let allChunks: any[] = [];
+            // Data structure to collect all chunks with timestamps
+            let allChunks: { data: string, timestamp: number }[] = [];
             const chunksRequired = Math.ceil(outputQueryWidth / this.chunkGCD) * this.subQueries.length;
             console.log(`Chunks required for aggregation: ${chunksRequired}`);
             console.log(`Output Query Width: ${outputQueryWidth}, Chunk GCD: ${this.chunkGCD}, SubQueries Length: ${this.subQueries.length}`);
 
             rsp_client.on("message", (topic, message) => {
-                allChunks.push(message.toString());
+                allChunks.push({ data: message.toString(), timestamp: Date.now() });
             });
 
-            // Trigger the aggregation window every outputQuerySlide milliseconds
+            // Sliding window: evaluate every outputQuerySlide ms, using last outputQueryWidth ms of data
             setInterval(async () => {
-                if (allChunks.length > 0) {
-                    console.log("Interval reached. Aggregating and triggering R2R...");
-                    await this.executeR2ROperator(allChunks);
-                    allChunks = [];
+                const now = Date.now();
+                const windowStart = now - outputQueryWidth;
+                const windowChunks = allChunks.filter(chunk => chunk.timestamp >= windowStart);
+                if (windowChunks.length > 0) {
+                    console.log("Sliding window evaluation. Aggregating and triggering R2R...");
+                    await this.executeR2ROperator(windowChunks.map(chunk => chunk.data));
                 } else {
-                    console.log("Interval reached, but no chunks to aggregate.");
+                    console.log("Sliding window: no chunks to aggregate.");
                 }
+                // Optionally, remove old chunks to keep buffer small
+                allChunks = allChunks.filter(chunk => chunk.timestamp >= windowStart);
             }, outputQuerySlide);
 
         });

@@ -187,30 +187,36 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
                                 var mqttTopic = topicsOfProcesses_1[_i];
                                 _loop_1(mqttTopic);
                             }
-                            // Data structure to collect all chunks
+                            // Data structure to collect all chunks with timestamps
                             var allChunks = [];
                             var chunksRequired = Math.ceil(outputQueryWidth / _this.chunkGCD) * _this.subQueries.length;
                             console.log("Chunks required for aggregation: ".concat(chunksRequired));
                             console.log("Output Query Width: ".concat(outputQueryWidth, ", Chunk GCD: ").concat(_this.chunkGCD, ", SubQueries Length: ").concat(_this.subQueries.length));
                             rsp_client.on("message", function (topic, message) {
-                                allChunks.push(message.toString());
+                                allChunks.push({ data: message.toString(), timestamp: Date.now() });
                             });
-                            // Run aggregation every this.chunkGCD milliseconds
+                            // Sliding window: evaluate every outputQuerySlide ms, using last outputQueryWidth ms of data
                             setInterval(function () { return __awaiter(_this, void 0, void 0, function () {
+                                var now, windowStart, windowChunks;
                                 return __generator(this, function (_a) {
                                     switch (_a.label) {
                                         case 0:
-                                            if (!(allChunks.length > 0)) return [3 /*break*/, 2];
-                                            console.log("Interval reached. Aggregating and triggering R2R...");
-                                            return [4 /*yield*/, this.executeR2ROperator(allChunks)];
+                                            now = Date.now();
+                                            windowStart = now - outputQueryWidth;
+                                            windowChunks = allChunks.filter(function (chunk) { return chunk.timestamp >= windowStart; });
+                                            if (!(windowChunks.length > 0)) return [3 /*break*/, 2];
+                                            console.log("Sliding window evaluation. Aggregating and triggering R2R...");
+                                            return [4 /*yield*/, this.executeR2ROperator(windowChunks.map(function (chunk) { return chunk.data; }))];
                                         case 1:
                                             _a.sent();
-                                            allChunks = [];
                                             return [3 /*break*/, 3];
                                         case 2:
-                                            console.log("Interval reached, but no chunks to aggregate.");
+                                            console.log("Sliding window: no chunks to aggregate.");
                                             _a.label = 3;
-                                        case 3: return [2 /*return*/];
+                                        case 3:
+                                            // Optionally, remove old chunks to keep buffer small
+                                            allChunks = allChunks.filter(function (chunk) { return chunk.timestamp >= windowStart; });
+                                            return [2 /*return*/];
                                     }
                                 });
                             }); }, outputQuerySlide);

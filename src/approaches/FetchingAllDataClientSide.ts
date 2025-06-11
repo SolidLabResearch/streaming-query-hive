@@ -12,6 +12,13 @@ export class FetchingAllDataClientSide {
     public rspql_parser: RSPQLParser;
     public rsp_engine: RSPEngine;
     public rstream_emitter: EventEmitter;
+    private windowStreamMap: { [key: string]: string } = {
+        "mqtt://localhost:1883/accX": "https://rsp.jsw1",
+        "mqtt://localhost:1883/accY": "https://rsp.jsw2",
+        "mqtt://localhost:1883/accZ": "https://rsp.jsw3"
+    }
+
+
 
     constructor(query: string, r2s_topic: string) {
         this.query = query;
@@ -71,16 +78,24 @@ export class FetchingAllDataClientSide {
         return `${url.protocol}//${url.hostname}:${url.port}/`;
     }
 
+
+
     public async add_event_store_to_rsp_engine(event_store: any, stream_name: RDFStream[], timestamp: number) {
         stream_name.forEach(async (stream: RDFStream) => {
             const quads = event_store.getQuads(null, null, null, null);
             for (const quad of quads) {
+                let window_name = this.windowStreamMap[stream.name];
+                console.log(`Window name for stream ${stream.name}:`, window_name);
+
                 const quadWithGraph = DataFactory.quad(
                     quad.subject,
                     quad.predicate,
                     quad.object,
-                    DataFactory.namedNode(stream_name)
+                    DataFactory.namedNode(window_name)
                 );
+
+                console.log(quadWithGraph);
+                
                 stream.add(quadWithGraph, timestamp);
             }
         });
@@ -142,18 +157,18 @@ WINDOW :w1 {
     UNION
     { 
 WINDOW :w2 {
-        ?s saref:hasValue ?o2 .
-        ?s saref:relatesToProperty dahccsensors:y .
+        ?s2 saref:hasValue ?o2 .
+        ?s2 saref:relatesToProperty dahccsensors:y .
     }}
     UNION
     { 
 WINDOW :w3 {
-        ?s saref:hasValue ?o3 .
-        ?s saref:relatesToProperty dahccsensors:z .
+        ?s3 saref:hasValue ?o3 .
+        ?s3 saref:relatesToProperty dahccsensors:z .
     }}
 }
 `;
-console.log(new RSPQLParser().parse(query).sparql);
+    console.log(new RSPQLParser().parse(query).sparql);
 
     const r2s_topic = "client_operation_output";
     const client = new FetchingAllDataClientSide(query, r2s_topic);
