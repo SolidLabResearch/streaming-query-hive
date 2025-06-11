@@ -222,16 +222,16 @@ var StreamingQueryChunkAggregatorOperator = /** @class */ (function () {
     };
     StreamingQueryChunkAggregatorOperator.prototype.executeR2ROperator = function (chunks) {
         return __awaiter(this, void 0, void 0, function () {
-            var resultString, parser, store, quads, detectAggregationFunction, aggregationSPARQLQuery, r2rOperator, bindingStream;
+            var resultString, store, parser, quads, detectAggregationFunction, aggregationSPARQLQuery, r2rOperator, bindingStream;
             var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
                         console.log("Executing the R2R Operator with results:", chunks);
                         resultString = chunks.map(function (chunk) { return JSON.parse(chunk); }).join('\n');
+                        store = new N3.Store();
                         try {
                             parser = new N3.Parser();
-                            store = new N3.Store();
                             quads = parser.parse(resultString);
                             store.addQuads(quads); // add all quads to store
                         }

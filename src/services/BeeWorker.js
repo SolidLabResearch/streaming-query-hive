@@ -60,7 +60,6 @@ var BeeWorker = /** @class */ (function () {
         this.query = query;
         this.r2s_topic = r2s_topic;
         console.log("Started a Bee Worker for the Query");
-        // this.processAgentStreams();
         this.process();
     }
     BeeWorker.prototype.process = function () {
@@ -168,7 +167,7 @@ var BeeWorker = /** @class */ (function () {
                             // const is_sound = await this.soundnessCheck(combined_query_string, this.query);
                             // if (is_complete && is_sound) {
                             console.log('The combined query is complete and sound');
-                            registeredQuery = "\n                PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgX) (AVG(?o) AS ?avgY)\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 120000 STEP 30000]\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accY [RANGE 120000 STEP 30000]\nWHERE {\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .\n    }\n    UNION\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .\n    }\n}\n    ";
+                            registeredQuery = "\n                PREFIX mqtt_broker: <mqtt://localhost:1883/>\n    PREFIX saref: <https://saref.etsi.org/core/>\nPREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>\nPREFIX : <https://rsp.js> \nREGISTER RStream <output> AS\nSELECT (AVG(?o) AS ?avgX) (AVG(?o) AS ?avgY)\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 120000 STEP 30000]\nFROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accY [RANGE 120000 STEP 30000]\nWHERE {\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.x .\n    }\n    UNION\n    WINDOW :w1 {\n        ?s saref:hasValue ?o .\n        ?s saref:relatesToProperty dahccsensors:wearable.acceleration.y .\n    }\n        \n}\n    ";
                             // this.streamingQueryChunkAggregatorOperator.setOutputQuery(combined_query_string);
                             // streamingQueryChunkAggregatorOperator.setOutputQuery(registeredQuery);            // Handle the case where the combined query is complete and sound
                             // this.streamingQueryChunkAggregatorOperator.init();

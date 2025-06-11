@@ -180,10 +180,10 @@ For example, the allResults object might look like this:
   ]
         */
         const resultString = chunks.map(chunk => JSON.parse(chunk)).join('\n');
-
+  const store = new N3.Store();     
         try {
             const parser = new N3.Parser();
-            const store = new N3.Store();
+          
 
             const quads = parser.parse(resultString); // parse returns array of quads
             store.addQuads(quads); // add all quads to store
