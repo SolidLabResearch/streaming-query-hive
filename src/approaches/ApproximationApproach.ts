@@ -625,16 +625,12 @@ export function buildTopicWindowParams(topics: Array<{ r2s_topic: string, rspql_
     return topicWindowParams;
 }
 
-// Map topic to window width and aggregation type
 const topicWindowParams: Record<string, { width: number, agg: string }> = {
-    // Fill this mapping with your actual topics and their window parameters
-    // e.g. 'chunked/4326db944e975b18e99e2c791581efa0': { width: 60000, agg: 'AVG' },
 };
 
 // Buffer to store window results
 const windowBuffer: Array<{ start: number, end: number, value: number, agg: string }> = [];
 
-// In your MQTT message handler in ApproximationApproach:
 export function handleApproximationMessage(topic: string, message: any) {
     const value = parseFloat(message.toString());
     const now = Date.now();
@@ -652,6 +648,5 @@ export function handleApproximationMessage(topic: string, message: any) {
         agg: params.agg
     };
     windowBuffer.push(result);
-    // ...call your merging logic here...
 }
 
