@@ -2,8 +2,12 @@ import { EventEmitter } from "events";
 import { RDFStream, RSPEngine, RSPQLParser } from "rsp-js";
 import { turtleStringToStore } from "../util/Util";
 import { v4 as uuidv4 } from 'uuid';
+const N3 = require('n3');
 const mqtt = require('mqtt');
-const { DataFactory } = require("n3");
+
+
+const { DataFactory } = N3;
+const { namedNode, defaultGraph, quad } = DataFactory;
 
 
 export class FetchingAllDataClientSide {
@@ -57,7 +61,7 @@ export class FetchingAllDataClientSide {
                     const timestamp = latest_event_store.getQuads(null, DataFactory.namedNode("https://saref.etsi.org/core/hasTimestamp"), null, null)[0].object.value;
                     const timestamp_epoch = Date.parse(timestamp);
                     if (rsp_stream_object) {
-                        await this.add_event_store_to_rsp_engine(latest_event_store, [rsp_stream_object], timestamp_epoch);
+                        await this.add_event_store_to_rsp_engine(latest_event_store, rsp_stream_object, timestamp_epoch);
                     }
                 } catch (error) {
                     console.error("Error processing message:", error);
@@ -80,28 +84,30 @@ export class FetchingAllDataClientSide {
 
 
 
-    public async add_event_store_to_rsp_engine(event_store: any, stream_name: RDFStream[], timestamp: number) {
-        stream_name.forEach(async (stream: RDFStream) => {
-            const quads = event_store.getQuads(null, null, null, null);
-            for (const quad of quads) {
-                let window_name = this.windowStreamMap[stream.name];
-                console.log(`Window name for stream ${stream.name}:`, window_name);
-
-                const quadWithGraph = DataFactory.quad(
-                    quad.subject,
-                    quad.predicate,
-                    quad.object,
-                    DataFactory.namedNode(window_name)
-                );
-
-                console.log(quadWithGraph);
-                
-                stream.add(quadWithGraph, timestamp);
-            }
-        });
+    public async add_event_store_to_rsp_engine(event_store: any, stream_name: RDFStream, timestamp: number) {
+        const quads = event_store.getQuads(null, null, null, null);
+        let valueVar = '?o';
+        if (stream_name.name.endsWith('accY')) {
+            valueVar = '?o2';
+        } else if (stream_name.name.endsWith('accZ')) {
+            valueVar = '?o3';
+        }
+        for (const q of quads) {
+            // Debug: print every quad being added
+            console.log(`DEBUG: Adding quad to stream ${stream_name.name} at ${timestamp}:`, q.subject.value, q.predicate.value, q.object.value, q.graph.value);
+            stream_name.add(q, timestamp);
+        }
     }
 
     public async subscribeRStream() {
+        console.log("Subscribing to RStream...");
+        if (!this.rstream_emitter) {
+            console.error("RStream emitter is not initialized.");
+            return;
+        }
+        this.rstream_emitter.on("error", (err: any) => {
+            console.error("Error in RStream emitter:", err);
+        });
         this.rstream_emitter.on("RStream", (object: any) => {
             if (!object || !object.bindings) {
                 console.error("Received invalid RStream object:", object);
@@ -111,20 +117,19 @@ export class FetchingAllDataClientSide {
             const iterables = object.bindings.values();
 
             for (const item of iterables) {
-                const aggregation_event_timestamp = new Date().getTime();
                 const data = item.value;
-
-                const aggregation_event = this.generate_aggregation_event(data, aggregation_event_timestamp);
+                // Debug: print the full binding object
+                console.log("DEBUG: RStream binding:", item);
+                const aggregation_event = this.generate_aggregation_event(data);
                 const aggregation_object_string = JSON.stringify(aggregation_event);
 
                 console.log(`Aggregation event generated: ${aggregation_object_string}`);
-                process.exit(0); // Exit after processing the aggregation event
-            }
+                mqtt.connect("mqtt://localhost:1883").publish(this.r2s_topic, aggregation_object_string);            }
         });
 
     }
 
-    public generate_aggregation_event(data: any, timestamp: number) {
+    public generate_aggregation_event(data: any): string {
         const uuid_random = uuidv4();
 
         const aggregation_event = `
@@ -139,6 +144,37 @@ export class FetchingAllDataClientSide {
 
 async function clientSideProcessing() {
     const query = `
+PREFIX mqtt_broker: <mqtt://localhost:1883/>
+PREFIX saref: <https://saref.etsi.org/core/>
+PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
+PREFIX : <https://rsp.js> 
+REGISTER RStream <output> AS
+SELECT (AVG(?o) AS ?avgX)
+FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 120000 STEP 30000]
+FROM NAMED WINDOW :w2 ON STREAM mqtt_broker:accY [RANGE 120000 STEP 30000]
+FROM NAMED WINDOW :w3 ON STREAM mqtt_broker:accZ [RANGE 120000 STEP 30000]
+WHERE {
+   { 
+WINDOW :w1 {
+        ?s saref:hasValue ?o .
+        ?s saref:relatesToProperty dahccsensors:x .
+}}
+    UNION
+    { 
+WINDOW :w2 {
+        ?s2 saref:hasValue ?o .
+        ?s2 saref:relatesToProperty dahccsensors:y .
+    }}
+    UNION
+    { 
+WINDOW :w3 {
+        ?s3 saref:hasValue ?o .
+        ?s3 saref:relatesToProperty dahccsensors:z .
+    }}
+}
+`;
+
+    const query2 = `
 PREFIX mqtt_broker: <mqtt://localhost:1883/>
 PREFIX saref: <https://saref.etsi.org/core/>
 PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
@@ -168,10 +204,10 @@ WINDOW :w3 {
     }}
 }
 `;
-    console.log(new RSPQLParser().parse(query).sparql);
+    console.log(new RSPQLParser().parse(query2).sparql);
 
     const r2s_topic = "client_operation_output";
-    const client = new FetchingAllDataClientSide(query, r2s_topic);
+    const client = new FetchingAllDataClientSide(query2, r2s_topic);
     client.process_streams();
 }
 
