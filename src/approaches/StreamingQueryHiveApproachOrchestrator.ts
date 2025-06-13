@@ -121,4 +121,4 @@ function startResourceUsageLogging(filePath = 'streaming_query_hive_resource_log
     }, intervalMs);
 }
 
-startResourceUsageLogging('streaming_query_hive_resource_log.csv', 100);
+startResourceUsageLogging();
