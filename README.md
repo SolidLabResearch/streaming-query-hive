@@ -16,12 +16,12 @@ npm run lint:ts:fix
 
 ## Example Architecture
 
-The Streaming Query Hive can handle multiple streaming queries from different sources, and utilizes different streaming operators to process the data. The architecture is designed to be modular, allowing for easy integration of new sources and operators. An example architecture combining three different sources and the results from the RDF Stream Processing Agents to solve for a specific Parent Query is shown below:
+The Streaming Query Hive can handle multiple streaming queries from different sources, and utilizes different streaming operators to process the data. The architecture is designed to be modular, allowing for easy integration of new sources and operators. An example architecture combining three different sources and the results from the RDF Stream Processing Agents to solve for a specific Query is shown below:
 
-![Example Architecture](./images/Architecture.png)
+![Example Architecture](./images/Updated%20Architecture%20-Streaming%20Query%20Hive.png)
 
 
-In the architecuture, it is assumed that the query results from the RSSP Agents is being streamed to a MQTT topic. The MQTT topic is then consumed by the Streaming Query Hive, which processes the aggregated results using different streaming operators to solve for the Parent Query. The relationship between the queries to esatablish that the Child Queries are part of the Parent Query is established using the Query Containment [[1](#footnote-1)] Relationship. 
+In the architecuture, it is assumed that the query results from the RSSP Agents is being streamed to a MQTT topic. The MQTT topic is then consumed by the Streaming Query Hive, which processes the aggregated results using different streaming operators to solve for the Parent Query. The relationship between the queries to esatablish that the RSP Agent Queries are part of the Registered Query is established using the Query Containment [[1](#footnote-1)] Relationship. 
 
 The Streaming Queries utilized in the architecture are described in the RSP-QL query language [[2](#footnote-2)]. The tool utilized to find if the queries have the Query Containment [[1](#footnote-1)] or the Query Isomorphism [[3](#footnote-3)] is the RSP-QL Containment Checker [[4](#footnote-4)]. The RSP-QL Containment Checker is a tool that checks if a query is contained in another query, and can be used to determine if the results of one query can be used to solve another query. The tool is designed to work with the RSP-QL query language, and builds on the work done by the SPeCS Solver [[5](#footnote-5)] to support aggregation functions and the streaming semantics of the RSP-QL query language.
 

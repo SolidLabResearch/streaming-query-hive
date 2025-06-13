@@ -2,10 +2,14 @@ import { StreamConsumer } from "./StreamConsumer";
 import * as fs from 'fs';
 import * as mqtt from 'mqtt';
 import * as path from 'path';
+import { CSVLogger } from "../../../util/logger/CSVLogger";
 const N3 = require('n3');
 const { DataFactory } = N3;
 const { namedNode, literal } = DataFactory;
 
+/**
+ *
+ */
 export class StreamToMQTT {
 
     private stream_consumer: StreamConsumer;
@@ -21,6 +25,13 @@ export class StreamToMQTT {
     private sort_subject_length: number = 0;
     private frequency: number;
 
+    /**
+     *
+     * @param mqtt_broker
+     * @param frequency
+     * @param file_location
+     * @param topic_to_publish
+     */
     constructor(mqtt_broker: string, frequency: number, file_location: string, topic_to_publish: string) {
         this.store = new N3.Store();
         this.stream_consumer = new StreamConsumer(this.store);
@@ -31,6 +42,9 @@ export class StreamToMQTT {
         this.initialize_promise = this.initialize();
     }
 
+    /**
+     *
+     */
     async initialize(): Promise<void> {
         try {
             const store: typeof N3.Store = await this.load_dataset(this.file_location);
@@ -41,6 +55,10 @@ export class StreamToMQTT {
         }
     }
 
+    /**
+     *
+     * @param store
+     */
     async sort_observations(store: any): Promise<string[]> {
         const temp: string[] = [];
 
@@ -53,6 +71,11 @@ export class StreamToMQTT {
         return sorted;
     }
 
+    /**
+     *
+     * @param array
+     * @param store
+     */
     merge_sort(array: string[], store: any): string[] {
         if (array.length <= 1) return array;
 
@@ -62,6 +85,12 @@ export class StreamToMQTT {
         return this.merge(left, right, store);
     }
 
+    /**
+     *
+     * @param left
+     * @param right
+     * @param store
+     */
     merge(left: string[], right: string[], store: any): string[] {
         const merged: string[] = [];
         let i = 0, j = 0;
@@ -77,6 +106,10 @@ export class StreamToMQTT {
         return merged.concat(left.slice(i)).concat(right.slice(j));
     }
 
+    /**
+     *
+     * @param file_location
+     */
     async load_dataset(file_location: string): Promise<typeof N3.Store> {
         const topic = path.basename(file_location);
         console.log(`Loading file: ${topic}`);
@@ -94,6 +127,9 @@ export class StreamToMQTT {
         });
     }
 
+    /**
+     *
+     */
     async replay_streams(): Promise<void> {
         await this.initialize();
 
@@ -112,10 +148,17 @@ export class StreamToMQTT {
         console.log('All observations published.');
     }
 
+    /**
+     *
+     * @param ms
+     */
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    /**
+     *
+     */
     private async publish_one_observation() {
         if (this.number_of_publish >= this.sort_subject_length) {
             console.log('No more observations to publish.');
@@ -151,6 +194,10 @@ export class StreamToMQTT {
         }
     }
 
+    /**
+     *
+     * @param store
+     */
     private storeToString(store: any): Promise<string> {
         const writer = new N3.Writer();
         writer.addQuads(store.getQuads(null, null, null, null));

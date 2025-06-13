@@ -106,3 +106,7 @@ dist
 # RDF Data
 streamer/data/rdfData
 src/streamer/data
+approximation_log.csv
+approximation_resource_usage.csv
+replayer-log.csv
+streaming_query_chunk_aggregator_log.csv

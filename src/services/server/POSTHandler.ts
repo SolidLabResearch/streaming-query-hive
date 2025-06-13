@@ -2,7 +2,17 @@ import { ServerResponse, IncomingMessage } from "http";
 import { RSPAgentQuery } from "./HTTPServer";
 
 
+/**
+ *
+ */
 export class POSTHandler {
+    /**
+     *
+     * @param request
+     * @param response
+     * @param body
+     * @param rspAgentRecord
+     */
     public static async handle(request: IncomingMessage, response: ServerResponse, body: string, rspAgentRecord: Record<string, RSPAgentQuery>) {
         response.setHeader("Content-Type", "application/json");
 
@@ -52,8 +62,15 @@ export class POSTHandler {
         }
     }
 
-    private static async registerQueryAndAgent(parsedBody: any, response: ServerResponse, rspAgentRecord: any) {
-        if (!parsedBody.id || !parsedBody.rspql_query || !parsedBody.rstream_topic || !parsedBody.data_topic) {
+    /**
+     *
+     * @param parsedBody
+     * @param response
+     * @param rspAgentRecord
+     */
+    private static async registerQueryAndAgent(parsedBody: any, response: ServerResponse, rspAgentRecord: any) {        
+        
+        if (!parsedBody.id || !parsedBody.rspql_query || !parsedBody.r2s_topic || !parsedBody.data_topic) {
             response.writeHead(400);
             response.end(JSON.stringify({
                 error: 'Missing Required Fields'
