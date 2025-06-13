@@ -1,36 +1,44 @@
 
+import { CSVLogger } from '../../util/logger/CSVLogger';
 import { StreamToMQTT } from './publishing/StreamToMQTT';
 
 /**
  *
  */
+let logger = new CSVLogger('replayer-log.csv');
+
 async function replayXStream() {
-    const publisher = new StreamToMQTT('mqtt://localhost:1883', 1, 'src/streamer/data/acc-x.nt', "accX");
-    console.log("Starting replay for accX stream");
+    const publisher = new StreamToMQTT('mqtt://localhost:1883', 4, 'src/streamer/data/2minutes/acc-x.nt', "accX");
+    logger.log("Starting replay for accX stream");
     await publisher.replay_streams();
-    console.log("Replay completed for accX stream");
+    logger.log("Replay completed for accX stream");
 }
 
 async function replayYStream() {
-    const publisher = new StreamToMQTT('mqtt://localhost:1883', 1, 'src/streamer/data/acc-y.nt', "accY");
-    console.log("Starting replay for accY stream");
+    const publisher = new StreamToMQTT('mqtt://localhost:1883', 4, 'src/streamer/data/2minutes/acc-y.nt', "accY");
+    logger.log("Starting replay for accY stream");
     await publisher.replay_streams();
-    console.log("Replay completed for accY stream");
+    logger.log("Replay completed for accY stream");
 
 }
 
 async function replayZStream() {
-    const publisher = new StreamToMQTT('mqtt://localhost:1883', 1, 'src/streamer/data/acc-z.nt', "accZ");
-    console.log("Starting replay for accZ stream");
+    const publisher = new StreamToMQTT('mqtt://localhost:1883', 4, 'src/streamer/data/2minutes/acc-z.nt', "accZ");
+    logger.log("Starting replay for accZ stream");
     await publisher.replay_streams();
-    console.log("Replay completed for accZ stream");
+    logger.log("Replay completed for accZ stream");
 }
 
 async function replayStreams() {
-    replayXStream();
-    replayYStream();
-    replayZStream();
+    await Promise.all([
+        replayXStream(),
+        replayYStream(),
+        replayZStream()
+    ]);
+    logger.log("All streams replayed successfully");
+    process.exit(0);
 }
+
 replayStreams().catch((error) => {
     console.error("Error during stream replay:", error);
 });

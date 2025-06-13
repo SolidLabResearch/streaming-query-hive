@@ -1,6 +1,9 @@
 import { Orchestrator } from "../orchestrator/Orchestrator";
+import fs from 'fs';
 
+import { CSVLogger } from "../util/logger/CSVLogger";
 async function StreamingQueryHiveApproachOrchestrator() {
+    const logger = new CSVLogger('streaming_query_chunk_aggregator_log.csv');
     const orchestrator = new Orchestrator();
     // Add sub-queries
     const query1 = `
@@ -81,6 +84,8 @@ WHERE {
     }}
 }
     `;
+    logger.log("Registered Query");
+
     orchestrator.registerQuery(registeredQuery);
     console.log("Registered query:", orchestrator.getRegisteredQuery());
     // Run sub-queries
@@ -91,3 +96,29 @@ WHERE {
 StreamingQueryHiveApproachOrchestrator().catch(error => {
     console.error("Error in orchestrator:", error);
 });
+
+function startResourceUsageLogging(filePath = 'streaming_query_hive_resource_log.csv', intervalMs = 100) {
+    const writeHeader = !fs.existsSync(filePath);
+    const logStream = fs.createWriteStream(filePath, { flags: 'a' });
+    if (writeHeader) {
+        logStream.write('timestamp,cpu_user,cpu_system,rss,heapTotal,heapUsed,heapUsedMB,external\n');
+    }
+    setInterval(() => {
+        const mem = process.memoryUsage();
+        const cpu = process.cpuUsage();
+        const now = Date.now();
+        const line = [
+            now,
+            (cpu.user / 1000).toFixed(2),
+            (cpu.system / 1000).toFixed(2),
+            mem.rss,
+            mem.heapTotal,
+            mem.heapUsed,
+            (mem.heapUsed / 1024 / 1024).toFixed(2),
+            mem.external
+        ].join(',') + '\n';
+        logStream.write(line);
+    }, intervalMs);
+}
+
+startResourceUsageLogging('streaming_query_hive_resource_log.csv', 100);

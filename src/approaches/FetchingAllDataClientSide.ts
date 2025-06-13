@@ -2,6 +2,7 @@ import { EventEmitter } from "events";
 import { RDFStream, RSPEngine, RSPQLParser } from "rsp-js";
 import { turtleStringToStore } from "../util/Util";
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
 const N3 = require('n3');
 const mqtt = require('mqtt');
 
@@ -23,7 +24,6 @@ export class FetchingAllDataClientSide {
     }
 
 
-
     constructor(query: string, r2s_topic: string) {
         this.query = query;
         this.r2s_topic = r2s_topic;
@@ -31,6 +31,7 @@ export class FetchingAllDataClientSide {
         this.rsp_engine = new RSPEngine(query);
         this.rstream_emitter = this.rsp_engine.register();
         this.subscribeRStream();
+        this.startResourceUsageLogging();
 
     }
 
@@ -124,7 +125,8 @@ export class FetchingAllDataClientSide {
                 const aggregation_object_string = JSON.stringify(aggregation_event);
 
                 console.log(`Aggregation event generated: ${aggregation_object_string}`);
-                mqtt.connect("mqtt://localhost:1883").publish(this.r2s_topic, aggregation_object_string);            }
+                mqtt.connect("mqtt://localhost:1883").publish(this.r2s_topic, aggregation_object_string);
+            }
         });
 
     }
@@ -137,6 +139,30 @@ export class FetchingAllDataClientSide {
     `;
         return aggregation_event.trim();
 
+    }
+
+    startResourceUsageLogging(filePath = 'fetching_data_client_side.csv', intervalMs = 100) {
+        const writeHeader = !fs.existsSync(filePath);
+        const logStream = fs.createWriteStream(filePath, { flags: 'a' });
+        if (writeHeader) {
+            logStream.write('timestamp,cpu_user,cpu_system,rss,heapTotal,heapUsed,heapUsedMB,external\n');
+        }
+        setInterval(() => {
+            const mem = process.memoryUsage();
+            const cpu = process.cpuUsage();
+            const now = Date.now();
+            const line = [
+                now,
+                (cpu.user / 1000).toFixed(2),
+                (cpu.system / 1000).toFixed(2),
+                mem.rss,
+                mem.heapTotal,
+                mem.heapUsed,
+                (mem.heapUsed / 1024 / 1024).toFixed(2),
+                mem.external
+            ].join(',') + '\n';
+            logStream.write(line);
+        }, intervalMs);
     }
 
 }

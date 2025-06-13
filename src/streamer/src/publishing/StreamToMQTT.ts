@@ -2,6 +2,7 @@ import { StreamConsumer } from "./StreamConsumer";
 import * as fs from 'fs';
 import * as mqtt from 'mqtt';
 import * as path from 'path';
+import { CSVLogger } from "../../../util/logger/CSVLogger";
 const N3 = require('n3');
 const { DataFactory } = N3;
 const { namedNode, literal } = DataFactory;

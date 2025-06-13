@@ -4,6 +4,8 @@ import mqtt from "mqtt";
 import { ContainmentChecker } from "rspql-containment-checker";
 import { ExtractedQuery, QueryMap } from "../util/Types";
 import { generateQuery } from "../util/Util";
+import { CSVLogger } from "../util/logger/CSVLogger";
+import fs from "fs";
 
 export class ApproximationApproach {
     public query: string;
@@ -15,6 +17,7 @@ export class ApproximationApproach {
     private queryParser: RSPQLParser;
     private mqttBroker: string = 'mqtt://localhost:1883'; // Default MQTT broker URL, can be changed if needed
     private containedQueriesForApproximation: string[];
+    private logger: CSVLogger;
 
     constructor(query: string, r2s_topic: string) {
         this.containmentChecker = new ContainmentChecker();
@@ -24,6 +27,8 @@ export class ApproximationApproach {
         this.queryFetchLocation = "http://localhost:8080/fetchQueries";
         this.containedQueriesForApproximation = [];
         this.queryParser = new RSPQLParser();
+        this.logger = new CSVLogger("approximation_log.csv");
+        this.logger.log('approximation_query_registered');
         if (!query || !r2s_topic) {
             throw new Error("Missing required parameters: query and r2s_topic");
         }
@@ -216,11 +221,14 @@ export class ApproximationApproach {
                             console.log(`Merging results for output window [${target.start}, ${target.end}] with overlap [${overlap.start}, ${overlap.end}]`);
                             console.log(`Window 1: [${win1.start}, ${win1.end}] with value ${win1.value}`);
                             console.log(`Window 2: [${win2.start}, ${win2.end}] with value ${win2.value}`);
+                            console.log(`Overlap: [${overlap.start}, ${overlap.end}] with value ${overlap.value}`);
 
                             const merged = mergeMultipleSlidingWindowResults(windowBuffer, target, agg);
                             // const merged = mergeSlidingWindowResults(win1, win2, overlap, target, agg);
+
                             rsp_client.publish(this.r2s_topic, JSON.stringify(merged));
                             console.log(`Merged result for output window [${target.start}, ${target.end}]:`, merged);
+                            this.logger.log(`received_result,${topic},${merged}`);
                             // You can now publish or use this merged result as needed
                         }
                     }
@@ -230,6 +238,23 @@ export class ApproximationApproach {
                 }
             });
 
+            // Start a timer to trigger aggregation every outputQuerySlide ms
+            setInterval(() => {
+                const now = Date.now();
+                const windowStartGlobal = now - outputQueryWidth;
+                // Remove old windows outside the output window width
+                while (windowBuffer.length && windowBuffer[0].end < windowStartGlobal) {
+                    windowBuffer.shift();
+                }
+                // Aggregate all windows in the buffer that overlap the output window
+                if (windowBuffer.length > 0) {
+                    const target = { start: windowStartGlobal, end: now };
+                    const agg = windowBuffer[windowBuffer.length - 1].agg as 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX';
+                    const merged = mergeMultipleSlidingWindowResults(windowBuffer, target, agg);
+                    console.log(`Merged result for output window [${target.start}, ${target.end}]:`, merged);
+                    this.logger.log(`interval ${JSON.stringify(merged)}`);
+                }
+            }, outputQuerySlide);
 
         });
 
@@ -627,6 +652,7 @@ export function buildTopicWindowParams(topics: Array<{ r2s_topic: string, rspql_
 
 const topicWindowParams: Record<string, { width: number, agg: string }> = {
 };
+
 
 // Buffer to store window results
 const windowBuffer: Array<{ start: number, end: number, value: number, agg: string }> = [];

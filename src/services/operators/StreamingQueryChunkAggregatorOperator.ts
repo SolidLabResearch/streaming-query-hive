@@ -4,6 +4,7 @@ import { RSPQueryProcess } from "../../rsp/RSPQueryProcess";
 import { hash_string_md5 } from "../../util/Util";
 import { R2ROperator } from "../operators/r2r";
 import mqtt from "mqtt";
+import { CSVLogger } from "../../util/logger/CSVLogger";
 const N3 = require('n3');
 /**
  *
@@ -16,6 +17,7 @@ export class StreamingQueryChunkAggregatorOperator {
     private queryMQTTTopicMap !: Map<string, string>;
     private subQueryMQTTTopicMap: Map<string, string> = new Map<string, string>();
     private chunkGCD: number;
+    private logger: CSVLogger;
     private mqttBroker: string = 'mqtt://localhost:1883'; // Default MQTT broker URL, can be changed if needed
     /**
      *
@@ -25,6 +27,7 @@ export class StreamingQueryChunkAggregatorOperator {
         this.parser = new RSPQLParser();
         this.chunkGCD = 0;
         this.outputQuery = outputQuery;
+        this.logger = new CSVLogger("streaming_query_chunk_aggregator_log.csv");
     }
 
     public async init() {
@@ -215,6 +218,8 @@ For example, the allResults object might look like this:
             const rsp_client = mqtt.connect(this.mqttBroker);
             rsp_client.on("connect", () => {
                 const outputTopic = `output`;
+                this.logger.log(`calculated result ${outputQueryEvent}`);
+                
                 rsp_client.publish(outputTopic, outputQueryEvent, (err: any) => {
                     if (err) {
                         console.error(`Error publishing output query event to topic ${outputTopic}:`, err);

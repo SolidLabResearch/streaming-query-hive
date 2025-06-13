@@ -1,6 +1,33 @@
+import fs from 'fs';
 import { Orchestrator } from "../orchestrator/Orchestrator";
 import { OrchestratorApprox } from "../orchestrator/OrchestratorApprox";
 import { ApproximationApproach } from "./ApproximationApproach";
+
+function startResourceUsageLogging(filePath = 'approximation_resource_usage.log', intervalMs = 100) {
+  const writeHeader = !fs.existsSync(filePath);
+  const logStream = fs.createWriteStream(filePath, { flags: 'a' });
+  if (writeHeader) {
+    logStream.write('timestamp,cpu_user,cpu_system,rss,heapTotal,heapUsed,heapUsedMB,external\n');
+  }
+  setInterval(() => {
+    const mem = process.memoryUsage();
+    const cpu = process.cpuUsage();
+    const now = Date.now();
+    const line = [
+      now,
+      (cpu.user / 1000).toFixed(2),
+      (cpu.system / 1000).toFixed(2),
+      mem.rss,
+      mem.heapTotal,
+      mem.heapUsed,
+      (mem.heapUsed / 1024 / 1024).toFixed(2),
+      mem.external
+    ].join(',') + '\n';
+    logStream.write(line);
+  }, intervalMs);
+}
+
+startResourceUsageLogging('approximation_resource_usage.csv', 100);
 
 async function orchestrateApproximationApproach() {
     const orchestrator = new OrchestratorApprox();
