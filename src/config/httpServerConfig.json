@@ -1,3 +1,5 @@
 {
-    "port" : 8080
+    "port" : 8080,
+    "queryFetchLocation": "http://localhost:8080/fetchQueries",
+    "mqttBroker": "mqtt://localhost:1883"
 }

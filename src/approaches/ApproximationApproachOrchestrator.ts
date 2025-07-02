@@ -1,8 +1,14 @@
 import fs from 'fs';
+import { QueryCombiner } from 'hive-thought-rewriter';
 import { Orchestrator } from "../orchestrator/Orchestrator";
 import { OrchestratorApprox } from "../orchestrator/OrchestratorApprox";
 import { ApproximationApproach } from "./ApproximationApproach";
 
+/**
+ *
+ * @param filePath
+ * @param intervalMs
+ */
 function startResourceUsageLogging(filePath = 'approximation_resource_usage.log', intervalMs = 100) {
   const writeHeader = !fs.existsSync(filePath);
   const logStream = fs.createWriteStream(filePath, { flags: 'a' });
@@ -29,6 +35,9 @@ function startResourceUsageLogging(filePath = 'approximation_resource_usage.log'
 
 startResourceUsageLogging('approximation_resource_usage.csv', 100);
 
+/**
+ *
+ */
 async function orchestrateApproximationApproach() {
     const orchestrator = new OrchestratorApprox();
     await executeSubQueries(orchestrator);
@@ -71,6 +80,10 @@ WHERE {
 
 }
 
+/**
+ *
+ * @param orchestrator
+ */
 async function executeSubQueries(orchestrator: OrchestratorApprox) {
     // Add sub-queries
     const query1 = `
@@ -103,7 +116,7 @@ WHERE {
     }
 }
     `;
-
+    
     const query3 = `
                     PREFIX mqtt_broker: <mqtt://localhost:1883/>
     PREFIX saref: <https://saref.etsi.org/core/>
@@ -124,6 +137,6 @@ WHERE {
     orchestrator.addSubQuery(query2);
     orchestrator.addSubQuery(query3);
     console.log("Sub-queries added:", orchestrator.getSubQueries());
-};
+}
 
 orchestrateApproximationApproach().catch(console.error);

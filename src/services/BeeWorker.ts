@@ -3,35 +3,53 @@ import { ContainmentChecker } from "rspql-containment-checker";
 import { ExtractedQuery, QueryMap } from "../util/Types";
 import { generateQuery } from "../util/Util";
 import { StreamingQueryChunkAggregatorOperator } from "./operators/StreamingQueryChunkAggregatorOperator";
+import { ApproximationApproachOperator } from "./operators/ApproximationApproachOperator";
+import { IQueryOperator } from "../util/Interfaces";
 
+/**
+ *
+ */
 export class BeeWorker {
-
 
     private query: string;
     private r2s_topic: string;
     private containmentChecker: ContainmentChecker;
+    private operator: IQueryOperator;
     private queryCombiner: QueryCombiner;
     private queryFetchLocation: string;
-    private streamingQueryChunkAggregatorOperator: StreamingQueryChunkAggregatorOperator;
+    /**
+     *
+     */
     constructor() {
         this.containmentChecker = new ContainmentChecker();
         this.queryCombiner = new QueryCombiner();
         this.queryFetchLocation = "http://localhost:8080/fetchQueries";
         const query = process.env.QUERY;
+        const queryOperator = process.env.QUERY_OPERATOR || "StreamingQueryChunkAggregatorOperator";
         const r2s_topic = process.env.TOPIC;
         if (!query || !r2s_topic) {
             throw new Error("Missing required environment variables");
-            process.exit(1);
+        }
+        if (queryOperator === "StreamingQueryChunkAggregatorOperator") {
+            this.operator = new StreamingQueryChunkAggregatorOperator();
+        }
+        else if (queryOperator === "ApproximationApproachOperator") {
+            this.operator = new ApproximationApproachOperator();
+        }
+        else {
+            throw new Error(`Unsupported query operator: ${queryOperator}`);
         }
         this.query = query;
         this.r2s_topic = r2s_topic;
-        this.streamingQueryChunkAggregatorOperator = new StreamingQueryChunkAggregatorOperator(this.query);
         console.log(`BeeWorker initialized with query: ${this.query} and topic: ${this.r2s_topic}`);
         this.process();
     }
 
+    /**
+     *
+     */
     async process() {
-        console.log(`proces() method is called`);
+        console.log(`process() method is called`);
 
         const existingQueries = await this.fetchExistingQueries(this.queryFetchLocation);
         const extractedQueries = await this.extractQueriesWithTopics(JSON.parse(existingQueries) as QueryMap);
@@ -48,12 +66,12 @@ export class BeeWorker {
 
             const isValid = await this.validateQueryContainment(this.query, combinedQuery);
             if (isValid) {
+                this.operator.addOutputQuery(this.query);
                 for (const containedQuery of containedQueries) {
-                    this.streamingQueryChunkAggregatorOperator.addSubQuery(containedQuery);
+                    this.operator.addSubQuery(containedQuery);
                 }
-
-                await this.streamingQueryChunkAggregatorOperator.init();
-                this.streamingQueryChunkAggregatorOperator.handleAggregation();
+                this.operator.init();
+                this.operator.handleAggregation();
             }
             else {
                 console.log(`The subqueries are contained but however the combined query cannot be utilized to make the original registered query.`);
@@ -67,31 +85,18 @@ export class BeeWorker {
 
     }
 
+    /**
+     *
+     * @param extractedQueries
+     */
     async findContainedQueries(extractedQueries: ExtractedQuery[]): Promise<string[]> {
         const containedQueries: string[] = [];
         for (const extractedQuery of extractedQueries) {
             this.query = this.removeAggregationFunctions(this.query);
             extractedQuery.rspql_query = this.removeAggregationFunctions(extractedQuery.rspql_query);
-            let queryY = generateQuery(['y', 'x', 'z']);
-            let queryZ = generateQuery(['z', 'y', 'x']);
-            const isContainedX = await this.containmentChecker.checkContainment(this.query, extractedQuery.rspql_query);
 
-            /**
-             * Note: Normally, the order of the UNIONs should not matter.
-             * However, there is a current bug in the containment checker that causes it to only consider
-             * the first query in the UNION. The bug is in the underlying SPeCS Containment Solver,
-             * which the RSPQL Containment Checker builds on.
-             *
-             * This is a workaround to check the containment for the other two queries in the UNION.
-             * Remove this workaround when the bug is fixed in the SPeCS Containment Solver.
-             *
-             * Read more about the bug here:
-             * https://kushbisen.top/assets/Working-Notes/Working-Note-001
-             */
+            const isContained = await this.containmentChecker.checkContainment(this.query, extractedQuery.rspql_query);
 
-            const isContainedY = await this.containmentChecker.checkContainment(queryY, extractedQuery.rspql_query);
-            const isContainedZ = await this.containmentChecker.checkContainment(queryZ, extractedQuery.rspql_query);
-            const isContained = isContainedX || isContainedY || isContainedZ;
             if (isContained) {
                 console.log(`Query "${extractedQuery.rspql_query}" is contained in the main query.`);
                 containedQueries.push(extractedQuery.rspql_query);
@@ -103,6 +108,10 @@ export class BeeWorker {
         return containedQueries;
     }
 
+    /**
+     *
+     * @param location
+     */
     async fetchExistingQueries(location: string): Promise<string> {
         if (!location) {
             throw new Error("Location for fetching queries is not specified");
@@ -120,6 +129,10 @@ export class BeeWorker {
         return queries;
     }
 
+    /**
+     *
+     * @param data
+     */
     async extractQueriesWithTopics(data: QueryMap): Promise<ExtractedQuery[]> {
         const extractedQueries: ExtractedQuery[] = [];
 
@@ -138,6 +151,11 @@ export class BeeWorker {
         return extractedQueries;
     }
 
+    /**
+     *
+     * @param queryOne
+     * @param queryTwo
+     */
     async validateQueryContainment(queryOne: string, queryTwo: string): Promise<boolean> {
         // Completeness Check for query containment
         queryOne = this.removeAggregationFunctions(queryOne);
@@ -164,16 +182,17 @@ export class BeeWorker {
         }
     }
 
+    /**
+     *
+     * @param query
+     */
     removeAggregationFunctions(query: string): string {
-        // This regex will match any aggregation function like AVG(?x) AS ?alias
-        // Replace any function like AVG(?x) AS ?alias with just ?x
         return query.replace(/\(\s*\w+\s*\(\s*\?(\w+)\s*\)\s+AS\s+\?\w+\s*\)/g, '?$1');
     }
 
-
-
-
-
+    /**
+     *
+     */
     stop() {
 
     }
