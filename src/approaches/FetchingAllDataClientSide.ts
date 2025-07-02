@@ -11,6 +11,9 @@ const { DataFactory } = N3;
 const { namedNode, defaultGraph, quad } = DataFactory;
 
 
+/**
+ *
+ */
 export class FetchingAllDataClientSide {
     public query: string;
     public r2s_topic: string;
@@ -24,6 +27,11 @@ export class FetchingAllDataClientSide {
     }
 
 
+    /**
+     *
+     * @param query
+     * @param r2s_topic
+     */
     constructor(query: string, r2s_topic: string) {
         this.query = query;
         this.r2s_topic = r2s_topic;
@@ -35,6 +43,9 @@ export class FetchingAllDataClientSide {
 
     }
 
+    /**
+     *
+     */
     process_streams() {
         const streams = this.returnStreams();
         for (const stream of streams) {
@@ -72,12 +83,19 @@ export class FetchingAllDataClientSide {
 
     }
 
+    /**
+     *
+     */
     returnStreams() {
         const parsedQuery = this.rspql_parser.parse(this.query);
         const streams: any[] = [...parsedQuery.s2r];
         return streams;
     }
 
+    /**
+     *
+     * @param stream_name
+     */
     public returnMQTTBroker(stream_name: string): string {
         const url = new URL(stream_name);
         return `${url.protocol}//${url.hostname}:${url.port}/`;
@@ -85,6 +103,12 @@ export class FetchingAllDataClientSide {
 
 
 
+    /**
+     *
+     * @param event_store
+     * @param stream_name
+     * @param timestamp
+     */
     public async add_event_store_to_rsp_engine(event_store: any, stream_name: RDFStream, timestamp: number) {
         const quads = event_store.getQuads(null, null, null, null);
         let valueVar = '?o';
@@ -100,6 +124,9 @@ export class FetchingAllDataClientSide {
         }
     }
 
+    /**
+     *
+     */
     public async subscribeRStream() {
         console.log("Subscribing to RStream...");
         if (!this.rstream_emitter) {
@@ -131,6 +158,10 @@ export class FetchingAllDataClientSide {
 
     }
 
+    /**
+     *
+     * @param data
+     */
     public generate_aggregation_event(data: any): string {
         const uuid_random = uuidv4();
 
@@ -141,6 +172,11 @@ export class FetchingAllDataClientSide {
 
     }
 
+    /**
+     *
+     * @param filePath
+     * @param intervalMs
+     */
     startResourceUsageLogging(filePath = 'fetching_data_client_side.csv', intervalMs = 100) {
         const writeHeader = !fs.existsSync(filePath);
         const logStream = fs.createWriteStream(filePath, { flags: 'a' });
@@ -168,6 +204,9 @@ export class FetchingAllDataClientSide {
 }
 
 
+/**
+ *
+ */
 async function clientSideProcessing() {
     const query = `
 PREFIX mqtt_broker: <mqtt://localhost:1883/>

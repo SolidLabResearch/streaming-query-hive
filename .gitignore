@@ -105,7 +105,6 @@ dist
 
 # RDF Data
 streamer/data/rdfData
-src/streamer/data
 approximation_log.csv
 approximation_resource_usage.csv
 replayer-log.csv

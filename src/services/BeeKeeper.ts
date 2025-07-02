@@ -14,6 +14,9 @@ import { HiveQueryBee } from "./HiveQueryBee";
  */
 export class BeeKeeper {
     private bees: Map<string, any>
+    /**
+     *
+     */
     constructor() {
         // Initialize the BeeKeeper with an empty map of bees
         this.bees = new Map();

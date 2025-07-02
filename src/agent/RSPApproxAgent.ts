@@ -37,6 +37,9 @@ export class RSPApproxAgent {
 
     }
 
+    /**
+     *
+     */
     public async registerToQueryRegistry() {
         console.log(`Registering query: ${this.query} to the query registry.`);
         const register_location = `${this.http_server_location}register`;
@@ -179,6 +182,12 @@ export class RSPApproxAgent {
     }
 
 
+    /**
+     *
+     * @param event_store
+     * @param stream_name
+     * @param timestamp
+     */
     public async add_event_store_to_rsp_engine(event_store: any, stream_name: RDFStream[], timestamp: number) {
         stream_name.forEach(async (stream: RDFStream) => {
             const quads = event_store.getQuads(null, null, null, null);

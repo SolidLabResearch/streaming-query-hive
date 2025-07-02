@@ -7,6 +7,9 @@ import { generateQuery } from "../util/Util";
 import { CSVLogger } from "../util/logger/CSVLogger";
 import fs from "fs";
 
+/**
+ *
+ */
 export class ApproximationApproach {
     public query: string;
     public r2s_topic: string;
@@ -19,6 +22,11 @@ export class ApproximationApproach {
     private containedQueriesForApproximation: string[];
     private logger: CSVLogger;
 
+    /**
+     *
+     * @param query
+     * @param r2s_topic
+     */
     constructor(query: string, r2s_topic: string) {
         this.containmentChecker = new ContainmentChecker();
         this.queryCombiner = new QueryCombiner();
@@ -34,6 +42,9 @@ export class ApproximationApproach {
         }
     }
 
+    /**
+     *
+     */
     public async process() {
         const existingQueries = await this.fetchExistingQueries(this.queryFetchLocation);
         if (!existingQueries) {
@@ -45,7 +56,7 @@ export class ApproximationApproach {
         const topicWindowParams = buildTopicWindowParams(extractedQueries);
         // Buffer to store recent window results (window objects, not raw values)
         const windowBuffer: Array<{ start: number, end: number, value: number, agg: string, queryId?: string }> = [];
-        let lastTriggerTime = Date.now();
+        const lastTriggerTime = Date.now();
 
         const containedQueries = await this.findContainedQueries(extractedQueries);
 
@@ -77,6 +88,10 @@ export class ApproximationApproach {
     }
 
 
+    /**
+     *
+     * @param topicWindowParams
+     */
     async processApproximationApproach(topicWindowParams: any) {
         if (this.queryMQTTTopicMap.size === 0) {
             console.log("No MQTT topics found for the queries.");
@@ -210,8 +225,9 @@ export class ApproximationApproach {
 
                             const overlapDur = Math.max(0, overlapEnd - overlapStart);
 
+                            // FIX : Calculate Overlap in a more robust way
                             // Estimate overlap value (simple average, or use actual if available)
-                            const overlapValue = (win1.value + win2.value) / 2; // Replace with actual if you have it
+                            const overlapValue = (win1.value + win2.value) / 2; 
                             console.log(`Overlap duration: ${overlapDur}`);
 
                             const overlap = { start: overlapStart, end: overlapEnd, value: overlapValue };
@@ -229,7 +245,6 @@ export class ApproximationApproach {
                             rsp_client.publish(this.r2s_topic, JSON.stringify(merged));
                             console.log(`Merged result for output window [${target.start}, ${target.end}]:`, merged);
                             this.logger.log(`received_result,${topic},${merged}`);
-                            // You can now publish or use this merged result as needed
                         }
                     }
 
@@ -260,6 +275,9 @@ export class ApproximationApproach {
 
     }
 
+    /**
+     *
+     */
     async setMQTTTopicMap(): Promise<void> {
         this.queryMQTTTopicMap = new Map<string, string>();
         const response = await fetch(this.queryFetchLocation, {});
@@ -275,6 +293,10 @@ export class ApproximationApproach {
     }
 
 
+    /**
+     *
+     * @param location
+     */
     async fetchExistingQueries(location: string): Promise<string> {
         if (!location) {
             throw new Error("Location for fetching queries is not specified");
@@ -292,6 +314,11 @@ export class ApproximationApproach {
         return queries;
     }
 
+    /**
+     *
+     * @param queryOne
+     * @param queryTwo
+     */
     async validateQueryContainment(queryOne: string, queryTwo: string): Promise<boolean> {
         // Completeness Check for query containment
         queryOne = this.removeAggregationFunctions(queryOne);
@@ -319,6 +346,10 @@ export class ApproximationApproach {
     }
 
 
+    /**
+     *
+     * @param data
+     */
     async extractQueriesWithTopics(data: QueryMap): Promise<ExtractedQuery[]> {
         const extractedQueries: ExtractedQuery[] = [];
         console.log(`Extracting queries with topics from data:`, data);
@@ -342,13 +373,17 @@ export class ApproximationApproach {
     }
 
 
+    /**
+     *
+     * @param extractedQueries
+     */
     async findContainedQueries(extractedQueries: ExtractedQuery[]): Promise<string[]> {
         const containedQueries: string[] = [];
         for (const extractedQuery of extractedQueries) {
             this.query = this.removeAggregationFunctions(this.query);
             extractedQuery.rspql_query = this.removeAggregationFunctions(extractedQuery.rspql_query);
-            let queryY = generateQuery(['y', 'x', 'z']);
-            let queryZ = generateQuery(['z', 'y', 'x']);
+            const queryY = generateQuery(['y', 'x', 'z']);
+            const queryZ = generateQuery(['z', 'y', 'x']);
             const isContainedX = await this.containmentChecker.checkContainment(this.query, extractedQuery.rspql_query);
 
             /**
@@ -361,7 +396,7 @@ export class ApproximationApproach {
              * Remove this workaround when the bug is fixed in the SPeCS Containment Solver.
              *
              * Read more about the bug here:
-             * https://kushbisen.top/assets/Working-Notes/Working-Note-001
+             * https://kushbisen.top/assets/Working-Notes/Working-Note-001.
              */
 
             const isContainedY = await this.containmentChecker.checkContainment(queryY, extractedQuery.rspql_query);
@@ -378,6 +413,10 @@ export class ApproximationApproach {
         return containedQueries;
     }
 
+    /**
+     *
+     * @param query
+     */
     removeAggregationFunctions(query: string): string {
         // This regex will match any aggregation function like AVG(?x) AS ?alias
         // Replace any function like AVG(?x) AS ?alias with just ?x
@@ -389,12 +428,23 @@ export class ApproximationApproach {
 
 /**
  * Merges two window results with overlap subtraction for sliding windows.
- * @param win1 First window result {start, end, value}
- * @param win2 Second window result {start, end, value}
- * @param overlap Overlap window result {start, end, value}
- * @param target Target window {start, end}
- * @param agg Aggregation function: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX'
- * @returns The approximate aggregation for the target window
+ * @param win1 - First window result {start, end, value}.
+ * @param win2 - Second window result {start, end, value}.
+ * @param overlap - Overlap window result {start, end, value}.
+ * @param target - Target window {start, end}.
+ * @param win1.start
+ * @param win1.end
+ * @param win1.value
+ * @param agg - Aggregation function: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX'.
+ * @param win2.start
+ * @param win2.end
+ * @param win2.value
+ * @param overlap.start
+ * @param overlap.end
+ * @param overlap.value
+ * @param target.start
+ * @param target.end
+ * @returns The approximate aggregation for the target window.
  */
 export function mergeSlidingWindowResults(
     win1: { start: number, end: number, value: number },
@@ -425,10 +475,12 @@ export function mergeSlidingWindowResults(
 
 /**
  * Merges N window results with overlap-aware logic for sliding windows.
- * @param windows Array of window objects {start, end, value, agg}
- * @param target Target window {start, end}
- * @param agg Aggregation function: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX'
- * @returns The approximate aggregation for the target window
+ * @param windows - Array of window objects {start, end, value, agg}.
+ * @param target - Target window {start, end}.
+ * @param target.start
+ * @param agg - Aggregation function: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX'.
+ * @param target.end
+ * @returns The approximate aggregation for the target window.
  */
 export function mergeMultipleSlidingWindowResults(
     windows: Array<{ start: number, end: number, value: number }>,
@@ -471,9 +523,9 @@ export function mergeMultipleSlidingWindowResults(
 
 /**
  * Sets up approximate sliding window merging for MQTT messages.
- * @param rsp_client The MQTT client
- * @param outputWindowWidth The width of the output window in milliseconds
- * @param outputWindowSlide The slide of the output window in milliseconds
+ * @param rsp_client - The MQTT client.
+ * @param outputWindowWidth - The width of the output window in milliseconds.
+ * @param outputWindowSlide - The slide of the output window in milliseconds.
  */
 export function setupApproximateSlidingWindowMerging(rsp_client: any, outputWindowWidth: number, outputWindowSlide: number) {
     const windowBuffer: Array<{ start: number, end: number, value: number, queryId: string, agg: string }> = [];
@@ -525,9 +577,9 @@ export function setupApproximateSlidingWindowMerging(rsp_client: any, outputWind
 /**
  * Starts a sliding window approximation merge loop that triggers every outputWindowSlide ms,
  * using all window results from the last outputWindowWidth ms.
- * @param getAllChunks - function that returns all chunks as { data: string, timestamp: number }
- * @param outputWindowWidth - window width in ms
- * @param outputWindowSlide - slide in ms
+ * @param getAllChunks - Function that returns all chunks as { data: string, timestamp: number }.
+ * @param outputWindowWidth - Window width in ms.
+ * @param outputWindowSlide - Slide in ms.
  */
 export function startApproximationSlidingWindowLoop(
     getAllChunks: () => Array<{ data: string, timestamp: number }>,
@@ -573,10 +625,12 @@ export function startApproximationSlidingWindowLoop(
 /**
  * Handles incoming window result messages and performs approximation merging on each new message.
  * Call this function in your rsp_client.on('message') handler.
- * @param windowBuffer - array to store window results
- * @param outputWindowWidth - output window width in ms
- * @param outputWindowSlide - output window slide in ms
- * @param chunk - the new chunk/message received (should be { data: string, timestamp: number })
+ * @param windowBuffer - Array to store window results.
+ * @param outputWindowWidth - Output window width in ms.
+ * @param outputWindowSlide - Output window slide in ms.
+ * @param chunk - the new chunk/message received (should be { data: string, timestamp: number }).
+ * @param chunk.data
+ * @param chunk.timestamp
  */
 export function handleApproximationChunk(
     windowBuffer: Array<{ data: string, timestamp: number }>,
@@ -625,8 +679,8 @@ export function handleApproximationChunk(
 
 /**
  * Build a topic-to-window-params mapping from an array of topic/query objects.
- * @param topics Array of { r2s_topic, rspql_query }
- * @returns Record mapping r2s_topic to { width, agg }
+ * @param topics - Array of { r2s_topic, rspql_query }.
+ * @returns Record mapping r2s_topic to { width, agg }.
  */
 export function buildTopicWindowParams(topics: Array<{ r2s_topic: string, rspql_query: string }>) {
     const parser = new RSPQLParser();
@@ -657,6 +711,11 @@ const topicWindowParams: Record<string, { width: number, agg: string }> = {
 // Buffer to store window results
 const windowBuffer: Array<{ start: number, end: number, value: number, agg: string }> = [];
 
+/**
+ *
+ * @param topic
+ * @param message
+ */
 export function handleApproximationMessage(topic: string, message: any) {
     const value = parseFloat(message.toString());
     const now = Date.now();

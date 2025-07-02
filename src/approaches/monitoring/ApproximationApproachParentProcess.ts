@@ -1,6 +1,9 @@
 import {fork, ChildProcess} from 'child_process';
 import * as path from 'path';
 
+/**
+ *
+ */
 export async function startApproximationApproach() : Promise<void> {
             const childPath = path.resolve(__dirname, '../ApproximationApproachOrchestrator.js');
 

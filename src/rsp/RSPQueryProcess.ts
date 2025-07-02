@@ -6,6 +6,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { RSPQLParser } from 'rsp-js';
 import { turtleStringToStore } from '../util/Util';
 
+/**
+ *
+ */
 export class RSPQueryProcess {
     public query: string;
     public rstream_topic: string;
@@ -13,6 +16,11 @@ export class RSPQueryProcess {
     public rsp_engine: RSPEngine;
     public rspql_parser: RSPQLParser;
 
+    /**
+     *
+     * @param query
+     * @param rstream_topic
+     */
     constructor(query: string, rstream_topic: string) {
         this.query = query;
         this.rstream_topic = rstream_topic;
@@ -22,6 +30,9 @@ export class RSPQueryProcess {
         this.subscribeToResultStream();
     }
 
+    /**
+     *
+     */
     public async stream_process() {
         console.log(`Processing query in RSPQueryProcess: ${this.query}`);
         if (!this.query || this.query.trim() === "") {
@@ -96,6 +107,9 @@ export class RSPQueryProcess {
     }
 
 
+    /**
+     *
+     */
     public async subscribeToResultStream() {
         console.log(`Subscribing to result stream: ${this.rstream_topic}`);
         if (!this.rstream_topic || this.rstream_topic.trim() === "") {
@@ -134,6 +148,11 @@ export class RSPQueryProcess {
     }
 
 
+    /**
+     *
+     * @param data
+     * @param timestamp
+     */
     public generate_aggregation_event(data: any, timestamp: number) {
         const uuid_random = uuidv4();
 
@@ -144,6 +163,12 @@ export class RSPQueryProcess {
 
     }
 
+    /**
+     *
+     * @param event_store
+     * @param stream_name
+     * @param timestamp
+     */
     public async add_event_store_to_rsp_engine(event_store: any, stream_name: RDFStream[], timestamp: number) {
         stream_name.forEach(async (stream: RDFStream) => {
             const quads = event_store.getQuads(null, null, null, null);

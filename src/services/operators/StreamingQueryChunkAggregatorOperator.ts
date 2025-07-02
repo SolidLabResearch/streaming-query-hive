@@ -5,14 +5,16 @@ import { hash_string_md5 } from "../../util/Util";
 import { R2ROperator } from "../operators/r2r";
 import mqtt from "mqtt";
 import { CSVLogger } from "../../util/logger/CSVLogger";
+import { IQueryOperator } from "../../util/Interfaces";
 const N3 = require('n3');
+
 /**
  *
  */
-export class StreamingQueryChunkAggregatorOperator {
+export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
 
     public subQueries: string[];
-    public outputQuery: string;
+    public outputQuery: string = '';
     private parser: RSPQLParser;
     private queryMQTTTopicMap !: Map<string, string>;
     private subQueryMQTTTopicMap: Map<string, string> = new Map<string, string>();
@@ -22,20 +24,33 @@ export class StreamingQueryChunkAggregatorOperator {
     /**
      *
      */
-    constructor(outputQuery: string) {
+    constructor() {
         this.subQueries = [];
         this.parser = new RSPQLParser();
         this.chunkGCD = 0;
-        this.outputQuery = outputQuery;
         this.logger = new CSVLogger("streaming_query_chunk_aggregator_log.csv");
     }
 
+    /**
+     *
+     */
     public async init() {
         console.log("init() called");
         await this.setMQTTTopicMap();
         console.log("StreamingQueryChunkAggregatorOperator initialized.");
     }
 
+    /**
+     *
+     * @param query
+     */
+    addOutputQuery(query: string): void {
+        this.outputQuery = query;
+    }
+
+    /**
+     *
+     */
     async setMQTTTopicMap(): Promise<void> {
         console.log("setMQTTTopicMap() called");
 
@@ -167,6 +182,10 @@ export class StreamingQueryChunkAggregatorOperator {
 
 
 
+    /**
+     *
+     * @param chunks
+     */
     async executeR2ROperator(chunks: string[]): Promise<void> {
         console.log(`Executing the R2R Operator with results:`, chunks);
 
@@ -219,7 +238,7 @@ For example, the allResults object might look like this:
             rsp_client.on("connect", () => {
                 const outputTopic = `output`;
                 this.logger.log(`calculated result ${outputQueryEvent}`);
-                
+
                 rsp_client.publish(outputTopic, outputQueryEvent, (err: any) => {
                     if (err) {
                         console.error(`Error publishing output query event to topic ${outputTopic}:`, err);
@@ -242,17 +261,24 @@ For example, the allResults object might look like this:
         });
     }
 
+    /**
+     *
+     * @param data
+     */
     generateOutputQueryEvent(data: any): string {
         const uuid_random = uuidv4();
         return ` <https://rsp.js/outputQueryEvent/${uuid_random}> <https://saref.etsi.org/core/hasValue> "${data}"^^<http://www.w3.org/2001/XMLSchema#float> .`
     }
 
+    /**
+     *
+     */
     async initializeSubQueryProcesses(): Promise<void> {
         console.log(`Initializing subquery processes.`);
         const chunkSize = this.findGCDChunk(this.subQueries, this.outputQuery);
         console.log(`Calculated GCD Chunk Size: ${chunkSize}`);
         this.chunkGCD = chunkSize;
-        let rewrittenChunkQueries: string[] = [];
+        const rewrittenChunkQueries: string[] = [];
         if (chunkSize > 0) {
             const rewriteChunkQuery = new RewriteChunkQuery(chunkSize, chunkSize);
             for (let i = 0; i < this.subQueries.length; i++) {
@@ -387,6 +413,10 @@ For example, the allResults object might look like this:
         this.subQueries = [];
     }
 
+    /**
+     *
+     * @param query
+     */
     detectAggregationFunction(query: string): string | null {
         const aggregationFunctions = ['SUM', 'AVG', 'COUNT', 'MIN', 'MAX'];
         for (const func of aggregationFunctions) {
@@ -397,6 +427,11 @@ For example, the allResults object might look like this:
         return null;
     }
 
+    /**
+     *
+     * @param aggregationFunction
+     * @param variable
+     */
     getAggregationSPARQLQuery(aggregationFunction: string, variable: string): string {
         const allowedFunctions = ['AVG', 'SUM', 'COUNT', 'MIN', 'MAX'];
 
@@ -418,6 +453,10 @@ For example, the allResults object might look like this:
         return `SELECT (${aggregationFunction}(${variable}) AS ?result) WHERE { ?s ?p ${variable} }`;
     }
 
+    /**
+     *
+     * @param ms
+     */
     sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
@@ -425,6 +464,9 @@ For example, the allResults object might look like this:
 
 }
 
+/**
+ *
+ */
 function uuidv4() {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
         const r = Math.random() * 16 | 0;

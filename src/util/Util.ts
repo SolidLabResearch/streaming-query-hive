@@ -78,6 +78,10 @@ export function hash_string_md5(input_string: string) {
 
 type Axis = 'x' | 'y' | 'z';
 
+/**
+ *
+ * @param order
+ */
 export function generateQuery(order: Axis[] = ['z', 'y', 'x']) {
     const windowMappings: Record<Axis, {
         window: string;

@@ -2,6 +2,9 @@ import { Orchestrator } from "../orchestrator/Orchestrator";
 import fs from 'fs';
 
 import { CSVLogger } from "../util/logger/CSVLogger";
+/**
+ *
+ */
 async function StreamingQueryHiveApproachOrchestrator() {
     const logger = new CSVLogger('streaming_query_chunk_aggregator_log.csv');
     const orchestrator = new Orchestrator();
@@ -97,6 +100,11 @@ StreamingQueryHiveApproachOrchestrator().catch(error => {
     console.error("Error in orchestrator:", error);
 });
 
+/**
+ *
+ * @param filePath
+ * @param intervalMs
+ */
 function startResourceUsageLogging(filePath = 'streaming_query_hive_resource_log.csv', intervalMs = 100) {
     const writeHeader = !fs.existsSync(filePath);
     const logStream = fs.createWriteStream(filePath, { flags: 'a' });
