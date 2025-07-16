@@ -43,6 +43,7 @@ export class FetchingAllDataClientSide {
      */
     process_streams() {
         const streams = this.returnStreams();
+        console.log("Processing streams:", streams);
         for (const stream of streams) {
             const stream_name = stream.stream_name;
             const mqtt_broker = this.returnMQTTBroker(stream_name);
@@ -67,6 +68,7 @@ export class FetchingAllDataClientSide {
                     const latest_event_store = await turtleStringToStore(message_string);
                     const timestamp = latest_event_store.getQuads(null, DataFactory.namedNode("https://saref.etsi.org/core/hasTimestamp"), null, null)[0].object.value;
                     const timestamp_epoch = Date.parse(timestamp);
+                    
                     if (rsp_stream_object) {
                         await this.add_event_store_to_rsp_engine(latest_event_store, rsp_stream_object, timestamp_epoch);
                     }
@@ -106,10 +108,14 @@ export class FetchingAllDataClientSide {
      */
     public async add_event_store_to_rsp_engine(event_store: any, stream_name: RDFStream, timestamp: number) {
         const quads = event_store.getQuads(null, null, null, null);
+        const graph = DataFactory.namedNode(stream_name.name);
+        // Add each quad to the stream with the correct graph node
         for (const q of quads) {
+            // Set the graph node
+            const quadWithGraph = DataFactory.quad(q.subject, q.predicate, q.object, graph);
             // Debug: print every quad being added
-            console.log(`DEBUG: Adding quad to stream ${stream_name.name} at ${timestamp}:`, q.subject.value, q.predicate.value, q.object.value, q.graph.value);
-            stream_name.add(q, timestamp);
+            console.log(`DEBUG: Adding quad to stream ${stream_name.name} at ${timestamp}:`, quadWithGraph.subject.value, quadWithGraph.predicate.value, quadWithGraph.object.value, quadWithGraph.graph.value);
+            stream_name.add(quadWithGraph, timestamp);
         }
     }
 
@@ -139,9 +145,7 @@ export class FetchingAllDataClientSide {
                 console.log("DEBUG: RStream binding:", item);
                 const aggregation_event = this.generate_aggregation_event(data);
                 const aggregation_object_string = JSON.stringify(aggregation_event);
-
                 console.log(`Aggregation event generated: ${aggregation_object_string}`);
-                process.exit();
                 mqtt.connect("mqtt://localhost:1883").publish(this.r2s_topic, aggregation_object_string);
             }
         });
@@ -214,27 +218,27 @@ async function clientSideProcessing() {
 // }
 // `;
 
-//     const query3 = `
-//     PREFIX mqtt_broker: <mqtt://localhost:1883/>
-// PREFIX saref: <https://saref.etsi.org/core/>
-// PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
-// PREFIX : <https://rsp.js>
-//
-// REGISTER RStream <output> AS
-// SELECT (AVG(?oWearable) AS ?avgWearableX) (AVG(?oSmartphone) AS ?avgSmartphoneX)
-// FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:wearableX [RANGE 120000 STEP 60000]
-// FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:smartphoneX [RANGE 120000 STEP 60000]
-// WHERE {
-//     WINDOW :w1 {
-//         OPTIONAL {
-//             ?sWearable saref:hasValue ?oWearable .
-//         }
-//         OPTIONAL {
-//             ?sSmartphone saref:hasValue ?oSmartphone .
-//         }
-//     }
-// }
-//     `
+    const query3 = `
+    PREFIX mqtt_broker: <mqtt://localhost:1883/>
+PREFIX saref: <https://saref.etsi.org/core/>
+PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
+PREFIX : <https://rsp.js>
+
+REGISTER RStream <output> AS
+SELECT (AVG(?oWearable) AS ?avgWearableX) (AVG(?oSmartphone) AS ?avgSmartphoneX)
+FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:wearableX [RANGE 120000 STEP 60000]
+FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:smartphoneX [RANGE 120000 STEP 60000]
+WHERE {
+    WINDOW :w1 {
+        OPTIONAL {
+            ?sWearable saref:hasValue ?oWearable .
+        }
+        OPTIONAL {
+            ?sSmartphone saref:hasValue ?oSmartphone .
+        }
+    }
+}
+    `
 
 //     const query2 = `
 //     PREFIX mqtt_broker: <mqtt://localhost:1883/>
@@ -258,28 +262,73 @@ async function clientSideProcessing() {
 // }
 // `;
 
-    const query4 = `
+    const wearableQuery = `
     PREFIX mqtt_broker: <mqtt://localhost:1883/>
 PREFIX saref: <https://saref.etsi.org/core/>
 PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
 PREFIX : <https://rsp.js>
 REGISTER RStream <output> AS
-SELECT * 
-FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:wearableX [RANGE 120000 STEP 60000]
-FROM NAMED WINDOW :w2 ON STREAM mqtt_broker:smartphoneX [RANGE 120000 STEP 60000]
+SELECT ?avgCombinedX ?avgCombinedX2
+FROM NAMED WINDOW <mqtt://localhost:1883/wearableX> ON STREAM mqtt_broker:wearableX [RANGE 120000 STEP 60000]
+FROM NAMED WINDOW <mqtt://localhost:1883/smartphoneX> ON STREAM mqtt_broker:smartphoneX [RANGE 120000 STEP 60000]
 WHERE {
-    WINDOW :w1 {
-        ?sWearable saref:hasValue ?oWearable .
+    {
+        SELECT (AVG(?o) AS ?avgCombinedX)
+        WHERE {
+            WINDOW <mqtt://localhost:1883/wearableX> {
+                ?s saref:hasValue ?wearableValue .
+                ?s saref:relatesToProperty dahccsensors:wearableX .
+            }
+        }
     }
-    WINDOW :w2 {
-        ?sSmartphone saref:hasValue ?oSmartphone .
+    {
+        SELECT (AVG(?o2) AS ?avgCombinedX2)
+        WHERE {
+            WINDOW <mqtt://localhost:1883/smartphoneX> {
+                ?s2 saref:hasValue ?o2 .
+                ?s2 saref:relatesToProperty dahccsensors:smartphoneX .
+            }
+        }
     }
 }
     `;
-    console.log(new RSPQLParser().parse(query4).sparql);
+
+const wearableX_average_query = `
+PREFIX mqtt_broker: <mqtt://localhost:1883/>
+PREFIX saref: <https://saref.etsi.org/core/>
+PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
+PREFIX : <https://rsp.js>
+REGISTER RStream <wearableX_output> AS
+SELECT (AVG(?wearableValue) AS ?avgWearableX)
+FROM NAMED WINDOW <mqtt://localhost:1883/wearableX> ON STREAM mqtt_broker:wearableX [RANGE 120000 STEP 60000]
+WHERE {
+    WINDOW <mqtt://localhost:1883/wearableX> {
+        ?s saref:hasValue ?wearableValue .
+        ?s saref:relatesToProperty dahccsensors:wearableX .
+    }
+}
+`;
+
+const smartphoneX_average_query = `
+PREFIX mqtt_broker: <mqtt://localhost:1883/>
+PREFIX saref: <https://saref.etsi.org/core/>
+PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
+PREFIX : <https://rsp.js>
+REGISTER RStream <smartphoneX_output> AS
+SELECT (AVG(?o2) AS ?avgSmartphoneX)
+FROM NAMED WINDOW <mqtt://localhost:1883/smartphoneX> ON STREAM <mqtt://localhost:1883/smartphoneX> [RANGE 120000 STEP 60000]
+WHERE {
+    WINDOW <mqtt://localhost:1883/smartphoneX> {
+        ?s2 saref:hasValue ?o2 .
+        ?s2 saref:relatesToProperty <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/smartphoneX> .
+    }
+}
+`;
+
+    console.log(new RSPQLParser().parse(wearableX_average_query).sparql);
 
     const r2s_topic = "client_operation_output";
-    const client = new FetchingAllDataClientSide(query4, r2s_topic);
+    const client = new FetchingAllDataClientSide(wearableX_average_query, r2s_topic);
     client.process_streams();
 }
 
