@@ -7,7 +7,7 @@ import { CSVLogger } from "../util/logger/CSVLogger";
  */
 async function StreamingQueryHiveApproachOrchestrator() {
     const logger = new CSVLogger('streaming_query_chunk_aggregator_log.csv');
-    const orchestrator = new Orchestrator();
+    const orchestrator = new Orchestrator("StreamingQueryChunkAggregatorOperator");
     // Add sub-queries
     const query1 = `
             PREFIX mqtt_broker: <mqtt://localhost:1883/>
@@ -15,12 +15,12 @@ async function StreamingQueryHiveApproachOrchestrator() {
 PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
 PREFIX : <https://rsp.js> 
 REGISTER RStream <output> AS
-SELECT (AVG(?o) AS ?avgX)
-FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 60000 STEP 60000]
+SELECT (AVG(?o) AS ?avgWearableX)
+FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:wearableX [RANGE 60000 STEP 60000]
 WHERE {
     WINDOW :w1 {
-        ?s saref:hasValue ?o .
-        ?s saref:relatesToProperty dahccsensors:x .
+        ?s1 saref:hasValue ?o .
+        ?s1 saref:relatesToProperty dahccsensors:wearableX .
     }
 }
     `;
@@ -30,35 +30,20 @@ WHERE {
 PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
 PREFIX : <https://rsp.js> 
 REGISTER RStream <output> AS
-SELECT (AVG(?o2) AS ?avgY)
-FROM NAMED WINDOW :w2 ON STREAM mqtt_broker:accY [RANGE 60000 STEP 60000]
+SELECT (AVG(?o2) AS ?avgSmartphoneX)
+FROM NAMED WINDOW :w2 ON STREAM mqtt_broker:smartphoneX [RANGE 60000 STEP 60000]
 WHERE {
     WINDOW :w2 {
-        ?s saref:hasValue ?o2 .
-        ?s saref:relatesToProperty dahccsensors:y .
+        ?s2 saref:hasValue ?o2 .
+        ?s2 saref:relatesToProperty dahccsensors:smartphoneX .
     }
 }
     `;
 
-    const query3 = `
-                    PREFIX mqtt_broker: <mqtt://localhost:1883/>
-    PREFIX saref: <https://saref.etsi.org/core/>
-PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
-PREFIX : <https://rsp.js> 
-REGISTER RStream <output> AS
-SELECT (AVG(?o3) AS ?avgZ)
-FROM NAMED WINDOW :w3 ON STREAM mqtt_broker:accZ [RANGE 60000 STEP 60000]
-WHERE {
-    WINDOW :w3 {
-        ?s saref:hasValue ?o3 .
-        ?s saref:relatesToProperty dahccsensors:z .
-    }
-}
-    `;
-    orchestrator.addSubQuery(query1);
-    orchestrator.addSubQuery(query2);
-    orchestrator.addSubQuery(query3);
-    console.log("Sub-queries added:", orchestrator.getSubQueries());
+
+    await orchestrator.addSubQuery(query1);
+    await orchestrator.addSubQuery(query2);
+    logger.log(`Sub-queries added: ${JSON.stringify(orchestrator.getSubQueries())}`);
     // Register a query
     const registeredQuery = `
 PREFIX mqtt_broker: <mqtt://localhost:1883/>
@@ -66,31 +51,27 @@ PREFIX saref: <https://saref.etsi.org/core/>
 PREFIX dahccsensors: <https://dahcc.idlab.ugent.be/Homelab/SensorsAndActuators/>
 PREFIX : <https://rsp.js> 
 REGISTER RStream <output> AS
-SELECT (AVG(?o) AS ?avgX) (AVG(?o2) AS ?avgY) (AVG(?o3) AS ?avgZ)
-FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:accX [RANGE 120000 STEP 30000]
-FROM NAMED WINDOW :w2 ON STREAM mqtt_broker:accY [RANGE 120000 STEP 30000]
-FROM NAMED WINDOW :w3 ON STREAM mqtt_broker:accZ [RANGE 120000 STEP 30000]
+SELECT (AVG(?o) AS ?avgWearableX) (AVG(?o2) AS ?avgSmartphoneX) 
+FROM NAMED WINDOW :w1 ON STREAM mqtt_broker:wearableX [RANGE 120000 STEP 60000]
+FROM NAMED WINDOW :w2 ON STREAM mqtt_broker:smartphoneX [RANGE 120000 STEP 60000]
 WHERE {
-   { WINDOW :w1 {
-        ?s saref:hasValue ?o .
-        ?s saref:relatesToProperty dahccsensors:x .
+   { 
+    WINDOW :w1 {
+        ?s1 saref:hasValue ?o .
+        ?s1 saref:relatesToProperty dahccsensors:wearableX .
 }}
     UNION
-    { WINDOW :w2 {
-        ?s saref:hasValue ?o2 .
-        ?s saref:relatesToProperty dahccsensors:y .
-    }}
-    UNION
-    { WINDOW :w3 {
-        ?s saref:hasValue ?o3 .
-        ?s saref:relatesToProperty dahccsensors:z .
+    { 
+    WINDOW :w2 {
+        ?s2 saref:hasValue ?o2 .
+        ?s2 saref:relatesToProperty dahccsensors:smartphoneX .
     }}
 }
     `;
     logger.log("Registered Query");
-
     orchestrator.registerQuery(registeredQuery);
     console.log("Registered query:", orchestrator.getRegisteredQuery());
+    // -------------------------------------------------------------
     // Run sub-queries
     // Run registered query
     orchestrator.runRegisteredQuery();

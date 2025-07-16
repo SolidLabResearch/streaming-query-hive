@@ -11,16 +11,18 @@ export class Orchestrator {
     private subQueriesToRun: string[];
     private registeredQuery: string;
     private beeKeeper: BeeKeeper;
+    private operatorType: string;
     private http_server: HTTPServer;
 
     /**
      *
      */
-    constructor() {
+    constructor(operatorType: string) {
         this.subQueriesToRun = [];
         this.registeredQuery = "";
         this.beeKeeper = new BeeKeeper();
         this.http_server = new HTTPServer(config.port, console);
+        this.operatorType = operatorType;
         console.log(`HTTP server has started on port ${config.port}`);
     }
 
@@ -112,7 +114,7 @@ export class Orchestrator {
             return;
         }
 
-        this.beeKeeper.executeQuery(this.registeredQuery, "output");
+        this.beeKeeper.executeQuery(this.registeredQuery, "output", this.operatorType)
         console.log(`Running registered query: ${this.registeredQuery}`);
 
     }

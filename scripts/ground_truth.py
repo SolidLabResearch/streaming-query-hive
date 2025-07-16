@@ -13,17 +13,16 @@ def extract_first_n_floats(filepath, n=120):
     return values
 
 files = [
-    'src/streamer/data/2minutes/acc-x.nt',
-    'src/streamer/data/2minutes/acc-y.nt',
-    'src/streamer/data/2minutes/acc-z.nt'
+    '/home/kush/Code/RSP/stream-hive/src/streamer/data/smartphone.acceleration.x/data.nt',
+    '/home/kush/Code/RSP/stream-hive/src/streamer/data/wearable.acceleration.x/data.nt',
 ]
 
 averages = []
 for file in files:
-    vals = extract_first_n_floats(file, 120)
+    vals = extract_first_n_floats(file, 240)
     avg = sum(vals) / len(vals) if vals else float('nan')
     print(f"{file}: Average of first {len(vals)} values = {avg}")
     averages.append(avg)
 
 overall_avg = sum(averages) / len(averages) if averages else float('nan')
-print(f"\nAverage of the three averages: {overall_avg}")
+print(f"\nAverage : {overall_avg}")

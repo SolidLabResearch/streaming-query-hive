@@ -7,7 +7,7 @@ const OUT_CSV = 'streaming_query_hive_latency_summary.csv';
 const ITERATIONS = 35; // or detect dynamically
 const NUM_CORES = 8; // Set this to the number of logical CPU cores on your system
 
-let summaryRows = [['iteration', 'registered_query_ts', 'first_result_ts', 'latency_ms', 'result_value', 'avg_cpu_percent', 'avg_heapUsedMB']];
+const summaryRows = [['iteration', 'registered_query_ts', 'first_result_ts', 'latency_ms', 'result_value', 'avg_cpu_percent', 'avg_heapUsedMB']];
 
 for (let i = 1; i <= ITERATIONS; i++) {
   const logPath = path.join(LOGS_DIR, `iteration${i}`, 'streaming_query_chunk_aggregator_log.csv');
@@ -19,8 +19,8 @@ for (let i = 1; i <= ITERATIONS; i++) {
   if (fs.existsSync(resourcePath)) {
     const resourceContent = fs.readFileSync(resourcePath, 'utf8');
     const resourceRecords = csvParse.parse(resourceContent, { columns: true, skip_empty_lines: true });
-    let cpuPercents = [];
-    let heapUsedMBs = [];
+    const cpuPercents = [];
+    const heapUsedMBs = [];
     for (let j = 1; j < resourceRecords.length; j++) {
       const prev = resourceRecords[j - 1];
       const curr = resourceRecords[j];
@@ -66,7 +66,7 @@ for (let i = 1; i <= ITERATIONS; i++) {
     if (registeredTs && !resultTs && row.message && row.message.includes('calculated result')) {
       resultTs = Number(row.timestamp);
       // Try to extract the value from the message (between quotes)
-      let valueMatch = row.message.match(/"([0-9.]+)"/);
+      const valueMatch = row.message.match(/"([0-9.]+)"/);
       resultValue = valueMatch ? valueMatch[1] : '';
       break; // Only the first result after registration
     }

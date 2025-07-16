@@ -1,8 +1,8 @@
 import { RSPQLParser } from "rsp-js";
 import { RewriteChunkQuery } from "hive-thought-rewriter"
 import { RSPQueryProcess } from "../../rsp/RSPQueryProcess";
-import { hash_string_md5 } from "../../util/Util";
-import { R2ROperator } from "../operators/r2r";
+import { hash_string_md5, storeToString } from "../../util/Util";
+import { R2ROperator } from "./r2r";
 import mqtt from "mqtt";
 import { CSVLogger } from "../../util/logger/CSVLogger";
 import { IQueryOperator } from "../../util/Interfaces";
@@ -35,9 +35,9 @@ export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
      *
      */
     public async init() {
-        console.log("init() called");
+        this.logger.log("init() called");
         await this.setMQTTTopicMap();
-        console.log("StreamingQueryChunkAggregatorOperator initialized.");
+        this.logger.log("StreamingQueryChunkAggregatorOperator initialized.");
     }
 
     /**
@@ -52,21 +52,24 @@ export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
      *
      */
     async setMQTTTopicMap(): Promise<void> {
-        console.log("setMQTTTopicMap() called");
-
+        this.logger.log("setMQTTTopicMap() called");
         this.queryMQTTTopicMap = new Map<string, string>();
-        console.log("MQTT Topic Map set for subqueries:", this.queryMQTTTopicMap);
+        this.logger.log(`MQTT Topic Map set for subqueries: ${JSON.stringify(this.queryMQTTTopicMap)}`);
         const response = await fetch("http://localhost:8080/fetchQueries");
         if (!response.ok) {
             console.error("Failed to fetch queries from the server.");
             return;
         }
         const data = await response.json();
-        console.log(`Fetched data from server:`, data);
+        // Log the full structure for debugging
+        this.logger.log(`Fetched data from server (full JSON): ${JSON.stringify(data, null, 2)}`);
 
         for (const [queryHash, mqttTopic] of Object.entries(data)) {
-            this.queryMQTTTopicMap.set(queryHash as string, mqttTopic as string);
-            console.log(`Subquery ${queryHash} mapped to MQTT Topic ${mqttTopic}`);
+            const topicString = mqttTopic;
+
+            this.queryMQTTTopicMap.set(queryHash as string, topicString as string);
+            this.logger.log(`DEBUG: queryMQTTTopicMap after set: ${JSON.stringify(Array.from(this.queryMQTTTopicMap.entries()))}`);
+            this.logger.log(`Subquery ${queryHash} mapped to MQTT Topic ${topicString}`);
         }
     }
 
@@ -75,28 +78,31 @@ export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
      *
      */
     async handleAggregation(): Promise<void> {
-        console.log("Starting aggregation process for subqueries.");
+        this.logger.log("Starting aggregation process for subqueries.");
         await this.initializeSubQueryProcesses();
-        console.log("SubQuery Processes initialized for aggregation.");
+        this.logger.log("SubQuery Processes initialized for aggregation.");
 
         if (this.subQueries.length === 0) {
+            this.logger.log("No subqueries available for aggregation.");
             console.error("No subqueries available for aggregation.");
             return;
         }
         if (this.outputQuery === '') {
+            this.logger.log("Output query is not set for aggregation.");
             console.error("Output query is not set for aggregation.");
             return;
         }
         if (this.chunkGCD <= 0) {
+            this.logger.log("Chunk GCD is not valid for aggregation."); 
             console.error("Chunk GCD is not valid for aggregation.");
             return;
         }
         if (this.queryMQTTTopicMap.size === 0) {
-            console.error("No MQTT topics mapped for subqueries.");
+            this.logger.log("No MQTT topics mapped for subqueries.");
             return;
         }
 
-        console.log("Starting aggregation of subqueries with GCD chunk size:", this.chunkGCD);
+        this.logger.log(`Starting aggregation of subqueries with GCD chunk size: ${this.chunkGCD}`);
 
         if (!this.outputQuery) {
             console.error("Output query is not set or is undefined.");
@@ -116,7 +122,7 @@ export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
         }
 
         const rsp_client = mqtt.connect(this.mqttBroker);
-        console.log(`Connecting to MQTT broker at ${this.mqttBroker}...`);
+        this.logger.log(`Connecting to MQTT broker at ${this.mqttBroker}...`);
         rsp_client.on("error", (err) => {
             console.error("MQTT connection error:", err);
         });
@@ -124,30 +130,33 @@ export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
             console.error("MQTT client is offline. Please check the broker connection.");
         });
         rsp_client.on("reconnect", () => {
-            console.log("Reconnecting to MQTT broker...");
+            this.logger.log("Reconnecting to MQTT broker...");
         });
 
         const that = this;
 
         rsp_client.on("connect", () => {
 
+            this.logger.log(`subQueryTopicMap : ${JSON.stringify(that.subQueryMQTTTopicMap)}`);
             const topics = Array.from(that.subQueryMQTTTopicMap.values());
-            console.log("topics to subscribe:", topics);
-            let topicsOfProcesses: string[] = [];
+            this.logger.log(`topics to subscribe: ${topics}`);
+            // TODO : Remove hardcoded topics, use the topics from subQueryMQTTTopicMap but currently there is a bug in the subQueryMQTTTopicMap that prevents it from being used correctly.
+            // TODO : Such that only one topic is subscribed to at a time.
+            let topicsOfProcesses: string[] = ["chunked/f8eec45a01e39e93d117673df8915525", "chunked/b22681cadced9975b3b35cb47f82bb40"];
 
             topicsOfProcesses = topics;
 
-            console.log('DEBUG: topicsOfProcesses after loop:', topicsOfProcesses, 'length:', topicsOfProcesses.length);
+            this.logger.log(`DEBUG: topicsOfProcesses after loop: ${topicsOfProcesses}, length: ${topicsOfProcesses.length}`);
             if (topicsOfProcesses.length === 0) {
-                console.error('No valid MQTT topics to subscribe to. Please check the subQueryMQTTTopicMap.');
+                this.logger.log('No valid MQTT topics to subscribe to. Please check the subQueryMQTTTopicMap.');
                 return;
             }
             for (const mqttTopic of topicsOfProcesses) {
                 rsp_client.subscribe(`${mqttTopic}`, (err) => {
                     if (err) {
-                        console.error(`Failed to subscribe to topic ${mqttTopic}:`, err);
+                        this.logger.log(`Failed to subscribe to topic ${mqttTopic}: ${err}`);
                     } else {
-                        console.log(`Subscribed to topic: ${mqttTopic}`);
+                        this.logger.log(`Subscribed to topic: ${mqttTopic}`);
                     }
                 });
             }
@@ -155,11 +164,13 @@ export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
             // Data structure to collect all chunks with timestamps
             let allChunks: { data: string, timestamp: number }[] = [];
             const chunksRequired = Math.ceil(outputQueryWidth / this.chunkGCD) * this.subQueries.length;
-            console.log(`Chunks required for aggregation: ${chunksRequired}`);
-            console.log(`Output Query Width: ${outputQueryWidth}, Chunk GCD: ${this.chunkGCD}, SubQueries Length: ${this.subQueries.length}`);
+            this.logger.log(`Chunks required for aggregation: ${chunksRequired}`);
+            this.logger.log(`Output Query Width: ${outputQueryWidth}, Chunk GCD: ${this.chunkGCD}, SubQueries Length: ${this.subQueries.length}`);
 
             rsp_client.on("message", (topic, message) => {
+                this.logger.log(`Received message on topic ${topic}: ${message.toString()}`);
                 allChunks.push({ data: message.toString(), timestamp: Date.now() });
+                
             });
 
             // Sliding window: evaluate every outputQuerySlide ms, using last outputQueryWidth ms of data
@@ -168,10 +179,13 @@ export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
                 const windowStart = now - outputQueryWidth;
                 const windowChunks = allChunks.filter(chunk => chunk.timestamp >= windowStart);
                 if (windowChunks.length > 0) {
-                    console.log("Sliding window evaluation. Aggregating and triggering R2R...");
+                    this.logger.log(`Sliding window evaluation. Number of chunks in the window: ${windowChunks.length}`);
+                    this.logger.log(`Window start timestamp: ${windowStart}, Current time: ${now}`);
+                    this.logger.log(`Window chunks: ${JSON.stringify(windowChunks)}`);
+                    this.logger.log("Sliding window evaluation. Aggregating and triggering R2R...");
                     await this.executeR2ROperator(windowChunks.map(chunk => chunk.data));
                 } else {
-                    console.log("Sliding window: no chunks to aggregate.");
+                    this.logger.log("Sliding window: no chunks to aggregate.");
                 }
                 // Optionally, remove old chunks to keep buffer small
                 allChunks = allChunks.filter(chunk => chunk.timestamp >= windowStart);
@@ -187,7 +201,7 @@ export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
      * @param chunks
      */
     async executeR2ROperator(chunks: string[]): Promise<void> {
-        console.log(`Executing the R2R Operator with results:`, chunks);
+        this.logger.log(`Executing the R2R Operator with results: ${chunks}`);
 
         /*
 For example, the allResults object might look like this:
@@ -202,16 +216,26 @@ For example, the allResults object might look like this:
     '"<https://rsp.js/aggregation_event/327ae8b1-52a1-48f8-9749-324000a75a45> <https://saref.etsi.org/core/hasTimestamp> \\"1749592770747\\"^^<http://www.w3.org/2001/XMLSchema#long> .\\n    <https://rsp.js/aggregation_event/327ae8b1-52a1-48f8-9749-324000a75a45> <https://saref.etsi.org/core/hasValue> \\"-23\\"^^<http://www.w3.org/2001/XMLSchema#float> ."'
   ]
         */
-        const resultString = chunks.map(chunk => JSON.parse(chunk)).join('\n');
         const store = new N3.Store();
-        try {
-            const parser = new N3.Parser();
-
-            const quads = parser.parse(resultString); // parse returns array of quads
-            store.addQuads(quads); // add all quads to store
-        } catch (e) {
-            console.error("Failed to parse combined Turtle string:", e);
+        const parser = new N3.Parser();
+        for (const chunk of chunks) {
+            let chunkString = chunk;
+            // If chunk is a JSON string, parse it
+            try {
+                if (chunkString.startsWith('"') && chunkString.endsWith('"')) {
+                    chunkString = JSON.parse(chunkString);
+                }
+            } catch (e) {
+                this.logger.log(`DEBUG: Could not JSON.parse chunk: ${chunkString}`);
+            }
+            try {
+                const quads = parser.parse(chunkString);
+                store.addQuads(quads);
+            } catch (e) {
+                this.logger.log(`DEBUG: Could not parse chunk as Turtle: ${chunkString}`);
+            }
         }
+        this.logger.log(storeToString(store));
         const detectAggregationFunction = this.detectAggregationFunction(this.outputQuery);
         if (!detectAggregationFunction) {
             console.error("No aggregation function detected in the output query.");
@@ -222,7 +246,7 @@ For example, the allResults object might look like this:
             console.error("Failed to generate aggregation SPARQL query.");
             return;
         }
-        console.log("Generated Aggregation SPARQL Query:", aggregationSPARQLQuery);
+        this.logger.log(`Generated Aggregation SPARQL Query: ${aggregationSPARQLQuery}`);
         const r2rOperator = new R2ROperator(aggregationSPARQLQuery);
         const bindingStream = await r2rOperator.execute(store);
         if (!bindingStream) {
@@ -230,9 +254,9 @@ For example, the allResults object might look like this:
             return;
         }
         bindingStream.on('data', (data: any) => {
-            console.log("R2R Operator Data Received:", data);
+            this.logger.log(`R2R Operator Data Received: ${data}`);
             const outputQueryEvent = this.generateOutputQueryEvent(data.get('result').value);
-            console.log("Generated Output Query Event:", outputQueryEvent);
+            this.logger.log(`Generated Output Query Event: ${outputQueryEvent}`);
             // Publish the output query event to the MQTT broker
             const rsp_client = mqtt.connect(this.mqttBroker);
             rsp_client.on("connect", () => {
@@ -243,7 +267,7 @@ For example, the allResults object might look like this:
                     if (err) {
                         console.error(`Error publishing output query event to topic ${outputTopic}:`, err);
                     } else {
-                        console.log(`Output query event published to topic ${outputTopic}`);
+                        this.logger.log(`Output query event published to topic ${outputTopic}`);
                     }
                 });
             });
@@ -255,7 +279,7 @@ For example, the allResults object might look like this:
             }
             );
             rsp_client.on("reconnect", () => {
-                console.log("Reconnecting to MQTT broker...");
+                this.logger.log("Reconnecting to MQTT broker...");
             }
             );
         });
@@ -274,17 +298,21 @@ For example, the allResults object might look like this:
      *
      */
     async initializeSubQueryProcesses(): Promise<void> {
-        console.log(`Initializing subquery processes.`);
+        this.logger.log(`Initializing subquery processes.`);
+        this.logger.log(`DEBUG: subQueries length: ${this.subQueries.length}`);
+        this.logger.log(`DEBUG: subQueries: ${JSON.stringify(this.subQueries)}`);
+        this.logger.log(`DEBUG: outputQuery: ${this.outputQuery}`);
         const chunkSize = this.findGCDChunk(this.subQueries, this.outputQuery);
-        console.log(`Calculated GCD Chunk Size: ${chunkSize}`);
+        this.logger.log(`Calculated GCD Chunk Size: ${chunkSize}`);
         this.chunkGCD = chunkSize;
         const rewrittenChunkQueries: string[] = [];
         if (chunkSize > 0) {
             const rewriteChunkQuery = new RewriteChunkQuery(chunkSize, chunkSize);
             for (let i = 0; i < this.subQueries.length; i++) {
                 const subQuery = this.subQueries[i];
+                this.logger.log(`DEBUG: Rewriting subQuery ${i}: ${subQuery}`);
                 const rewrittenQuery = rewriteChunkQuery.rewriteQueryWithNewChunkSize(subQuery);
-                console.log(`Rewritten SubQuery ${i}: ${rewrittenQuery}`);
+                this.logger.log(`Rewritten SubQuery ${i}: ${rewrittenQuery}`);
                 rewrittenChunkQueries.push(rewrittenQuery);
             }
 
@@ -292,12 +320,14 @@ For example, the allResults object might look like this:
             const allPromises: Promise<void>[] = [];
             for (let i = 0; i < rewrittenChunkQueries.length; i++) {
                 const hash_subQuery = hash_string_md5(rewrittenChunkQueries[i]);
+                this.logger.log(`DEBUG: Setting subQueryMQTTTopicMap[${hash_subQuery}] = chunked/${hash_subQuery}`);
                 this.subQueryMQTTTopicMap.set(hash_subQuery, `chunked/${hash_subQuery}`);
+                this.logger.log(`DEBUG: subQueryMQTTTopicMap after set: ${JSON.stringify(Array.from(this.subQueryMQTTTopicMap.entries()))}`);
                 const rspQueryProcess = new RSPQueryProcess(rewrittenChunkQueries[i], `chunked/${hash_subQuery}`);
-                console.log(`chunked/${hash_subQuery} topic created for rewrittenChunkQueries: ${rewrittenChunkQueries[i]}: ${rewrittenChunkQueries[i]}`);
+                this.logger.log(`chunked/${hash_subQuery} topic created for rewrittenChunkQueries: ${rewrittenChunkQueries[i]}: ${rewrittenChunkQueries[i]}`);
                 const p = rspQueryProcess.stream_process().then(() => {
-                    console.log(`Topic chunked/${hash_subQuery} created for subquery ${i}`);
-                    console.log(`RSP Query Process started for subquery ${i}: ${rewrittenChunkQueries[i]}`);
+                    this.logger.log(`Topic chunked/${hash_subQuery} created for subquery ${i}`);
+                    this.logger.log(`RSP Query Process started for subquery ${i}: ${rewrittenChunkQueries[i]}`);
                 }).catch((error) => {
                     console.error(`Error starting RSP Query Process for subquery ${i}: ${rewrittenChunkQueries[i]}`, error);
                 });
@@ -305,9 +335,10 @@ For example, the allResults object might look like this:
             }
             // Wait for all subquery processes to finish initializing
             await Promise.all(allPromises);
-
+            this.logger.log(`DEBUG: Final subQueryMQTTTopicMap: ${JSON.stringify(Array.from(this.subQueryMQTTTopicMap.entries()))}`);
         } else {
             console.error("Failed to find a valid chunk size for the aggregation.");
+            this.logger.log("Failed to find a valid chunk size for the aggregation.");
         }
     }
 
@@ -320,7 +351,7 @@ For example, the allResults object might look like this:
         const window_parameters: number[] = [];
         for (let i = 0; i < subQueries.length; i++) {
             const subQueryParsed = this.parser.parse(subQueries[i]);
-            console.log(`Parsed subquery ${i}: ${JSON.stringify(subQueryParsed)}`);
+            this.logger.log(`Parsed subquery ${i}: ${JSON.stringify(subQueryParsed)}`);
 
             if (subQueryParsed) {
                 for (const s2r of subQueryParsed.s2r) {
@@ -334,7 +365,7 @@ For example, the allResults object might look like this:
         }
 
         const outputQueryParsed = this.parser.parse(outputQuery);
-        console.log(`Parsed output query: ${JSON.stringify(outputQueryParsed)}`);
+        this.logger.log(`Parsed output query: ${JSON.stringify(outputQueryParsed)}`);
 
         if (outputQueryParsed) {
             for (const s2r of outputQueryParsed.s2r) {
@@ -381,6 +412,10 @@ For example, the allResults object might look like this:
      */
     addSubQuery(query: string): void {
         this.subQueries.push(query);
+        if (this.logger) {
+            this.logger.log(`addSubQuery called. Current subQueries length: ${this.subQueries.length}`);
+            this.logger.log(`addSubQuery called. Current subQueries: ${JSON.stringify(this.subQueries)}`);
+        }
     }
 
     /**
@@ -389,7 +424,7 @@ For example, the allResults object might look like this:
      */
     setOutputQuery(query: string): void {
         this.outputQuery = query;
-        console.log(`Output query set: ${this.outputQuery}`);
+        this.logger.log(`Output query set: ${this.outputQuery}`);
         if (this.outputQuery === '') {
             console.error("Output query is empty. Please set a valid output query.");
         }

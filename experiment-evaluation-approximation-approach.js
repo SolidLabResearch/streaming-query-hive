@@ -2,7 +2,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const RUNS = 35;
+const RUNS = 1;
 const LOGS_DIR = 'logs/approximation-approach';
 const APPROACH_CMD = ['node', ['dist/approaches/ApproximationApproachOrchestrator.js']];
 const PUBLISH_CMD = ['node', ['dist/streamer/src/publish.js']];

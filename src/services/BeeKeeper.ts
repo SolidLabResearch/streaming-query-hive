@@ -30,9 +30,9 @@ export class BeeKeeper {
      * @param {string }r2s_topic - The topic to which the results will be published.
      * @returns {void} - No return value.
      */
-    public executeQuery(query: string, r2s_topic: string) {
+    public executeQuery(query: string, r2s_topic: string, operator: string) {
         const query_hash = hash_string_md5(query);
-        const worker = new HiveQueryBee(query, r2s_topic);
+        const worker = new HiveQueryBee(query, r2s_topic, operator);
         this.bees.set(query_hash, worker);
     }
 

@@ -15,14 +15,15 @@ export class HiveQueryBee {
      * @param topic
      * @param queryHash
      */
-    constructor(query: string, topic: string) {
+    constructor(query: string, topic: string, operator: string) {
         const beeWorkerPath = path.resolve(__dirname, "BeeWorker.js");
 
         this.query = query;
         this.process = fork(beeWorkerPath, [], {
             env: {
                 QUERY: query,
-                TOPIC: topic
+                TOPIC: topic,
+                OPERATOR_TYPE: operator
             }
         });
 

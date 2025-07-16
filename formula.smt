@@ -25,8 +25,10 @@
 
 ; ------------ IRIs ---------------------------------
 (declare-const	<p0_Resourse>	RDFValue)
+(declare-const	<p1_w1>	RDFValue)
 (declare-const	<p1_w2>	RDFValue)
-(declare-const	<p2_wearable>	RDFValue)
+(declare-const	<p2_smartphoneX>	RDFValue)
+(declare-const	<p2_wearableX>	RDFValue)
 (declare-const	<p4_hasValue>	RDFValue)
 (declare-const	<p4_relatesToProperty>	RDFValue)
 (declare-const	<p_Property>	RDFValue)
@@ -34,29 +36,18 @@
 ; ------------ Literals -----------------------------
 
 ; ------------ Variables ----------------------------
-(declare-const	<v2_o2>	RDFValue)
-(declare-const	<v2_s2>	RDFValue)
+(declare-const	<v2_o>	RDFValue)
+(declare-const	<v2_s1>	RDFValue)
 
 ; ------------ Assumption ---------------------------
 (assert 
 	(and 
 		(and 
-			(P <v2_s2> <p4_hasValue> <v2_o2> <p1_w2>) 
-			(P <v2_s2> <p4_relatesToProperty> <p2_wearable> <p1_w2>) 
+			(P <v2_s1> <p4_hasValue> <v2_o> <p1_w1>) 
+			(P <v2_s1> <p4_relatesToProperty> <p2_wearableX> <p1_w1>) 
 		)
 	)
 )
-
-; ------------ Conjecture ---------------------------
-(assert (not (exists ((<v1_o2> RDFValue)(<v1_s2> RDFValue)) 
-	(and 
-		(and 
-			(P <v1_s2> <p4_hasValue> <v1_o2> <p1_w2>) 
-			(P <v1_s2> <p4_relatesToProperty> <p2_wearable> <p1_w2>) 
-		)
-		(and (= <v1_o2> <v2_o2>) (= <v1_s2> <v2_s2>) )
-	)
-)))
 
 ; ------------ Check-Sat ----------------------------
 (check-sat)
