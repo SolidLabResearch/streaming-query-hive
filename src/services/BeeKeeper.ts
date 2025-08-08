@@ -23,20 +23,18 @@ export class BeeKeeper {
     }
 
     /**
-     * Execute a query by creating a new HiveQueryBee worker.
-     * The worker is responsible for executing the query
-     * and publishing the results to the specified topic.
+     * Execute a query using the HiveQueryBee worker.
+     * A HiveQueryBee worker is spawned for the query and the results
+     * are published to the specified topic.
      * @param {string} query - The query string to be executed.
      * @param {string }r2s_topic - The topic to which the results will be published.
      * @returns {void} - No return value.
      */
-    public executeQuery(query: string, r2s_topic: string, operator: string) {
+    public executeQuery(query: string, r2s_topic: string, operator: string, subQueries?: string[]) {
         const query_hash = hash_string_md5(query);
-        const worker = new HiveQueryBee(query, r2s_topic, operator);
+        const worker = new HiveQueryBee(query, r2s_topic, operator, subQueries);
         this.bees.set(query_hash, worker);
-    }
-
-    /**
+    }    /**
      * Stop a query by terminating the corresponding HiveQueryBee worker.
      * The worker is identified by the unique hash generated
      * from the query string. If the worker is found, it is stopped

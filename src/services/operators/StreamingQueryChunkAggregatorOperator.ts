@@ -5,13 +5,13 @@ import { hash_string_md5, storeToString } from "../../util/Util";
 import { R2ROperator } from "./r2r";
 import mqtt from "mqtt";
 import { CSVLogger } from "../../util/logger/CSVLogger";
-import { IQueryOperator } from "../../util/Interfaces";
+import { IStreamQueryOperator } from "../../util/Interfaces";
 const N3 = require('n3');
 
 /**
  *
  */
-export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
+export class StreamingQueryChunkAggregatorOperator implements IStreamQueryOperator {
 
     public subQueries: string[];
     public outputQuery: string = '';
@@ -161,34 +161,59 @@ export class StreamingQueryChunkAggregatorOperator implements IQueryOperator {
                 });
             }
 
-            // Data structure to collect all chunks with timestamps
-            let allChunks: { data: string, timestamp: number }[] = [];
+            // Data structure to collect chunks by topic with timestamps
+            const chunksByTopic: Map<string, { data: string, timestamp: number }[]> = new Map();
             const chunksRequired = Math.ceil(outputQueryWidth / this.chunkGCD) * this.subQueries.length;
             this.logger.log(`Chunks required for aggregation: ${chunksRequired}`);
             this.logger.log(`Output Query Width: ${outputQueryWidth}, Chunk GCD: ${this.chunkGCD}, SubQueries Length: ${this.subQueries.length}`);
 
             rsp_client.on("message", (topic, message) => {
                 this.logger.log(`Received message on topic ${topic}: ${message.toString()}`);
-                allChunks.push({ data: message.toString(), timestamp: Date.now() });
                 
+                // Initialize topic array if it doesn't exist
+                if (!chunksByTopic.has(topic)) {
+                    chunksByTopic.set(topic, []);
+                }
+                
+                // Add chunk to the appropriate topic
+                chunksByTopic.get(topic)!.push({ data: message.toString(), timestamp: Date.now() });
             });
 
             // Sliding window: evaluate every outputQuerySlide ms, using last outputQueryWidth ms of data
             setInterval(async () => {
                 const now = Date.now();
                 const windowStart = now - outputQueryWidth;
-                const windowChunks = allChunks.filter(chunk => chunk.timestamp >= windowStart);
-                if (windowChunks.length > 0) {
-                    this.logger.log(`Sliding window evaluation. Number of chunks in the window: ${windowChunks.length}`);
-                    this.logger.log(`Window start timestamp: ${windowStart}, Current time: ${now}`);
-                    this.logger.log(`Window chunks: ${JSON.stringify(windowChunks)}`);
+                
+                // Collect all chunks from all topics within the window
+                let allWindowChunks: string[] = [];
+                let totalTopicsWithData = 0;
+                
+                for (const [topic, chunks] of Array.from(chunksByTopic.entries())) {
+                    const windowChunks = chunks.filter(chunk => chunk.timestamp >= windowStart);
+                    
+                    if (windowChunks.length > 0) {
+                        totalTopicsWithData++;
+                        this.logger.log(`Sliding window evaluation for topic ${topic}. Number of chunks: ${windowChunks.length}`);
+                        this.logger.log(`Window start timestamp: ${windowStart}, Current time: ${now}`);
+                        this.logger.log(`Window chunks for ${topic}: ${JSON.stringify(windowChunks)}`);
+                        
+                        // Add this topic's chunks to the combined collection
+                        allWindowChunks.push(...windowChunks.map(chunk => chunk.data));
+                    }
+                    
+                    // Clean up old chunks for this topic
+                    chunksByTopic.set(topic, chunks.filter(chunk => chunk.timestamp >= windowStart));
+                }
+                
+                if (totalTopicsWithData > 0 && allWindowChunks.length > 0) {
+                    this.logger.log(`Sliding window evaluation completed. Combined chunks from ${totalTopicsWithData} topics, total chunks: ${allWindowChunks.length}`);
                     this.logger.log("Sliding window evaluation. Aggregating and triggering R2R...");
-                    await this.executeR2ROperator(windowChunks.map(chunk => chunk.data));
+                    
+                    // Process all chunks together like the client-side approach
+                    await this.executeR2ROperator(allWindowChunks);
                 } else {
                     this.logger.log("Sliding window: no chunks to aggregate.");
                 }
-                // Optionally, remove old chunks to keep buffer small
-                allChunks = allChunks.filter(chunk => chunk.timestamp >= windowStart);
             }, outputQuerySlide);
 
         });
@@ -494,6 +519,127 @@ For example, the allResults object might look like this:
      */
     sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    /**
+     * Execute R2R Operator for a specific topic's chunks
+     * @param topic
+     * @param chunks
+     */
+    async executeR2ROperatorForTopic(topic: string, chunks: string[]): Promise<number | null> {
+        this.logger.log(`Executing the R2R Operator for topic ${topic} with ${chunks.length} chunks`);
+
+        const store = new N3.Store();
+        const parser = new N3.Parser();
+        
+        // Filter out plain numeric values that might be duplicates of RDF values
+        // Only process chunks that look like RDF (contain URIs and predicates)
+        const rdfChunks = chunks.filter(chunk => {
+            let chunkString = chunk;
+            // Handle JSON-wrapped chunks
+            try {
+                if (chunkString.startsWith('"') && chunkString.endsWith('"')) {
+                    chunkString = JSON.parse(chunkString);
+                }
+            } catch (e) {
+                // If it's not JSON, use as-is
+            }
+            
+            // Check if chunk contains RDF patterns (URIs and predicates)
+            // Skip plain numeric values that are likely duplicates
+            const isRDF = chunkString.includes('https://') && chunkString.includes('hasValue');
+            const isPlainNumber = /^-?\d+\.?\d*$/.test(chunkString.trim());
+            
+            if (isPlainNumber) {
+                this.logger.log(`DEBUG: Filtering out plain numeric duplicate for ${topic}: ${chunkString}`);
+                return false; // Skip plain numbers
+            }
+            
+            return isRDF; // Only process RDF chunks
+        });
+        
+        this.logger.log(`DEBUG: Filtered ${chunks.length} chunks down to ${rdfChunks.length} RDF chunks for topic ${topic}`);
+        
+        for (const chunk of rdfChunks) {
+            let chunkString = chunk;
+            // If chunk is a JSON string, parse it
+            try {
+                if (chunkString.startsWith('"') && chunkString.endsWith('"')) {
+                    chunkString = JSON.parse(chunkString);
+                }
+            } catch (e) {
+                this.logger.log(`DEBUG: Could not JSON.parse chunk for ${topic}: ${chunkString}`);
+            }
+            try {
+                const quads = parser.parse(chunkString);
+                store.addQuads(quads);
+            } catch (e) {
+                this.logger.log(`DEBUG: Could not parse chunk as Turtle for ${topic}: ${chunkString}`);
+            }
+        }
+        
+        if (store.size === 0) {
+            this.logger.log(`No valid RDF data found for topic ${topic}`);
+            return null;
+        }
+        
+        this.logger.log(`Topic ${topic} RDF store contents: ${storeToString(store)}`);
+        const detectAggregationFunction = this.detectAggregationFunction(this.outputQuery);
+        if (!detectAggregationFunction) {
+            console.error(`No aggregation function detected in the output query for topic ${topic}.`);
+            return null;
+        }
+        const aggregationSPARQLQuery = this.getAggregationSPARQLQuery(detectAggregationFunction, 'o');
+        if (!aggregationSPARQLQuery) {
+            console.error(`Failed to generate aggregation SPARQL query for topic ${topic}.`);
+            return null;
+        }
+        this.logger.log(`Generated Aggregation SPARQL Query for ${topic}: ${aggregationSPARQLQuery}`);
+        
+        return new Promise<number | null>((resolve) => {
+            const r2rOperator = new R2ROperator(aggregationSPARQLQuery);
+            r2rOperator.execute(store).then(bindingStream => {
+                if (!bindingStream) {
+                    console.error(`Failed to execute R2R Operator for topic ${topic}.`);
+                    resolve(null);
+                    return;
+                }
+                bindingStream.on('data', (data: any) => {
+                    const resultValue = data.get('result').value;
+                    this.logger.log(`R2R Operator Data Received for ${topic}: ${JSON.stringify(data)}`);
+                    const numericResult = parseFloat(resultValue);
+                    resolve(numericResult);
+                });
+                bindingStream.on('error', (error: any) => {
+                    console.error(`R2R Operator error for topic ${topic}:`, error);
+                    resolve(null);
+                });
+            }).catch(error => {
+                console.error(`R2R Operator execution failed for topic ${topic}:`, error);
+                resolve(null);
+            });
+        });
+    }
+
+    /**
+     * Publish combined results from all topics
+     * @param finalResult
+     */
+    publishCombinedResults(finalResult: any): void {
+        const rsp_client = mqtt.connect(this.mqttBroker);
+        rsp_client.on('connect', () => {
+            // Publish to chunked/output topic to differentiate from other approaches
+            rsp_client.publish('chunked/output', JSON.stringify(finalResult), { qos: 1 }, (error) => {
+                if (error) {
+                    console.error('Failed to publish chunked results:', error);
+                    this.logger.log(`Failed to publish chunked results: ${error}`);
+                } else {
+                    console.log('Successfully published chunked results to chunked/output');
+                    this.logger.log('Successfully published chunked results to chunked/output');
+                }
+                rsp_client.end();
+            });
+        });
     }
 
 

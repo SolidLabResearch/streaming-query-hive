@@ -25,10 +25,10 @@
 
 ; ------------ IRIs ---------------------------------
 (declare-const	<p0_Resourse>	RDFValue)
-(declare-const	<p1_w1>	RDFValue)
-(declare-const	<p1_w2>	RDFValue)
+(declare-const	<p1_w3>	RDFValue)
 (declare-const	<p2_smartphoneX>	RDFValue)
-(declare-const	<p2_wearableX>	RDFValue)
+(declare-const	<p2_z>	RDFValue)
+(declare-const	<p3_smartphoneX>	RDFValue)
 (declare-const	<p4_hasValue>	RDFValue)
 (declare-const	<p4_relatesToProperty>	RDFValue)
 (declare-const	<p_Property>	RDFValue)
@@ -36,15 +36,15 @@
 ; ------------ Literals -----------------------------
 
 ; ------------ Variables ----------------------------
-(declare-const	<v2_o>	RDFValue)
-(declare-const	<v2_s1>	RDFValue)
+(declare-const	<v2_o3>	RDFValue)
+(declare-const	<v2_s3>	RDFValue)
 
 ; ------------ Assumption ---------------------------
 (assert 
 	(and 
 		(and 
-			(P <v2_s1> <p4_hasValue> <v2_o> <p1_w1>) 
-			(P <v2_s1> <p4_relatesToProperty> <p2_wearableX> <p1_w1>) 
+			(P <v2_s3> <p4_hasValue> <v2_o3> <p1_w3>) 
+			(P <v2_s3> <p4_relatesToProperty> <p2_z> <p1_w3>) 
 		)
 	)
 )

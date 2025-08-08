@@ -1,12 +1,14 @@
-import { IQueryOperator } from "../../util/Interfaces";
+import { IStreamQueryOperator } from "../../util/Interfaces";
 import CONFIG from "../../config/httpServerConfig.json"
 import { RSPQLParser } from "rsp-js";
 import { ExtractedQuery, QueryMap } from "../../util/Types";
+import { CSVLogger } from "../../util/logger/CSVLogger";
 import mqtt from "mqtt";
 /**
  *
  */
-export class ApproximationApproachOperator implements IQueryOperator {
+export class ApproximationApproachOperator implements IStreamQueryOperator {
+    private logger: CSVLogger = new CSVLogger('approximation_approach_log.csv');
     private subQueries: string[] = [];
     private outputQuery: string = "";
     private queryMQTTTopicMap: Map<string, string> = new Map<string, string>();
@@ -18,15 +20,16 @@ export class ApproximationApproachOperator implements IQueryOperator {
      *
      */
     constructor() {
-        this.init();
+        // Remove automatic init() call - let BeeWorker control the initialization timing
     }
 
-    /**
-     *
-     * @param query
-     */
     addSubQuery(query: string): void {
         this.subQueries.push(query);
+        console.log(`Sub-query added: ${query}`);
+    }
+
+    getSubQueries(): string[] {
+        return this.subQueries;
     }
 
     /**
@@ -37,17 +40,16 @@ export class ApproximationApproachOperator implements IQueryOperator {
         this.outputQuery = query;
     }
 
-
-
     /**
      *
      */
     async init(): Promise<void> {
         this.queryMQTTTopicMap = new Map<string, string>();
-        this.subQueries = [];
+        // Don't clear subQueries here - they should be preserved from addSubQuery() calls
+        // this.subQueries = [];
         this.extractedQueries = [];
         await this.setMQTTTopicMap();
-
+        console.log(`Init completed. Current subqueries count: ${this.subQueries.length}`);
     }
 
     /**
@@ -126,6 +128,9 @@ export class ApproximationApproachOperator implements IQueryOperator {
      *
      */
     async handleAggregation(): Promise<void> {
+        console.log(`handleAggregation called. Subqueries count: ${this.subQueries.length}`);
+        console.log(`Subqueries:`, this.subQueries);
+
         if (this.subQueries.length === 0) {
             throw new Error("No subqueries to aggregate.");
         }
@@ -154,24 +159,33 @@ export class ApproximationApproachOperator implements IQueryOperator {
             throw new Error("Invalid output query parameters: slide and width must be greater than zero. Cannot proceed with approximation approach.");
         }
 
-        const rsp_client = mqtt.connect(CONFIG.mqttBroker);
+        const rsp_client = mqtt.connect(CONFIG.mqttBroker, {
+            clientId: 'approximation-operator-' + Math.random().toString(16).substr(2, 8),
+            clean: true,
+            keepalive: 60,
+            reconnectPeriod: 1000
+        });
 
         rsp_client.on('error', (error: any) => {
             console.error("MQTT Client Error:", error);
+            this.logger.log(`MQTT Client Error: ${error}`);
         });
 
         rsp_client.on("offline", () => {
             console.log("MQTT Client Offline. Please check the connection of the broker.");
+            this.logger.log("MQTT Client Offline. Please check the connection of the broker.");
         });
 
         rsp_client.on("reconnect", () => {
             console.log("Reconnecting to MQTT broker");
+            this.logger.log("Reconnecting to MQTT broker");
         });
 
         const that = this;
 
         rsp_client.on('connect', () => {
-            console.log("MQTT Client Connected");
+            console.log("MQTT Client Connected for Approximation Operator");
+            this.logger.log("MQTT Client Connected for Approximation Operator");
 
             const topics = Array.from(this.queryMQTTTopicMap.values());
             if (topics.length === 0) {
@@ -195,21 +209,43 @@ export class ApproximationApproachOperator implements IQueryOperator {
                 });
             }
 
-            const windowBuffer: Array<{ start: number, end: number, value: number, agg: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX' }> = [];
+            // Use separate buffers for each topic/variable
+            const windowBuffers: Map<string, Array<{ start: number, end: number, value: number, agg: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX' }>> = new Map();
 
             let lastTriggerTime = Date.now();
 
             rsp_client.on("message", (topic: string, message: any) => {
-                console.log(`Received message on topic ${topic}:`, message.toString());
+                this.logger.log(`Received message on topic ${topic}: ${message.toString()}`);
 
                 try {
                     const data = message.toString();
-                    const value = parseFloat(data);
+                    this.logger.log(`Raw message data: ${data}`);
+                    
+                    // Parse the RDF triple to extract the numeric value
+                    // Look for patterns like: hasValue> "number"^^<type>
+                    const valueMatch = data.match(/saref:hasValue>\s*"([^"]*)"(?:\^\^<[^>]*>)?/);
+                    let value: number;
+                    
+                    if (valueMatch && valueMatch[1]) {
+                        value = parseFloat(valueMatch[1]);
+                        this.logger.log(`Extracted value from RDF: ${valueMatch[1]} -> ${value}`);
+                    } else {
+                        // Fallback: try to parse as direct number
+                        value = parseFloat(data);
+                        this.logger.log(`Fallback parse as float: ${data} -> ${value}`);
+                    }
+                    
+                    if (isNaN(value)) {
+                        this.logger.log(`Failed to parse numeric value from: ${data}`);
+                        return;
+                    }
+
                     const now = Date.now();
 
                     const params = window_parameters[topic];
 
                     if (!params) {
+                        this.logger.log(`No window parameters found for topic ${topic}`);
                         console.error(`No window parameters found for topic ${topic}`);
                         return;
                     }
@@ -223,32 +259,149 @@ export class ApproximationApproachOperator implements IQueryOperator {
                         value: value,
                         agg: params.aggregation as 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX'
                     };
-                    windowBuffer.push(result);
 
-                    const windowStartGlobal = now - outputQueryWidth;
-                    while (windowBuffer.length && windowBuffer[0].end < windowStartGlobal) {
-                        windowBuffer.shift();
+                    this.logger.log(`Pushed window result to buffer: ${JSON.stringify(result)}`);
+                    if (!result.value && result.value !== 0) {
+                        this.logger.log(`Received null or undefined value for topic ${topic}. Skipping.`);
+                        // Still add to buffer for this topic
+                        if (!windowBuffers.has(topic)) {
+                            windowBuffers.set(topic, []);
+                        }
+                        windowBuffers.get(topic)!.push(result);
+                        return;
                     }
 
+                    // Get or create buffer for this specific topic
+                    if (!windowBuffers.has(topic)) {
+                        windowBuffers.set(topic, []);
+                    }
+                    windowBuffers.get(topic)!.push(result);
+
+                    // Log current buffer state for all topics
+                    this.logger.log(`After adding result - Topic ${topic} buffer size: ${windowBuffers.get(topic)!.length}`);
+                    const allTopicBufferSizes: Record<string, number> = {};
+                    windowBuffers.forEach((buffer, topicKey) => {
+                        allTopicBufferSizes[topicKey] = buffer.length;
+                    });
+                    this.logger.log(`All topic buffer sizes after message: ${JSON.stringify(allTopicBufferSizes)}`);
+
                     if (Date.now() - lastTriggerTime >= outputQuerySlide) {
+                        const windowStartGlobal = now - outputQueryWidth;
+                        
+                        // Check how many topics have valid data in the current window BEFORE cleanup
+                        let topicsWithValidData = 0;
+                        windowBuffers.forEach((buffer, topicKey) => {
+                            const validWindowData = buffer.filter(w => w.end >= windowStartGlobal);
+                            if (validWindowData.length > 0) {
+                                topicsWithValidData++;
+                            }
+                        });
+                        
+                        // Wait a bit if we don't have data from all expected topics yet
+                        const bufferTimeMs = 1000; // 1 second buffer
+                        const shouldWaitForMoreTopics = (topicsWithValidData < r2sTopics.length) && 
+                                                       (Date.now() - lastTriggerTime < outputQuerySlide + bufferTimeMs);
+                        
+                        if (shouldWaitForMoreTopics) {
+                            this.logger.log(`Waiting for more topics. Topics with valid data: ${topicsWithValidData}, Expected: ${r2sTopics.length}, Time since trigger: ${Date.now() - lastTriggerTime}ms`);
+                            return; // Wait a bit more for other topics
+                        }
+                        
+                        this.logger.log(`Triggering aggregation for window [${windowStartGlobal}, ${now}]`);
+                        
+                        // Log buffer sizes before cleanup for each topic
+                        const topicBufferSizes: Record<string, number> = {};
+                        windowBuffers.forEach((buffer, topicKey) => {
+                            topicBufferSizes[topicKey] = buffer.length;
+                        });
+                        this.logger.log(`Current window buffer sizes before cleanup: ${JSON.stringify(topicBufferSizes)}`);
+                        
+                        // Clean up old windows for each topic buffer
+                        const aggregationResults: Record<string, number | string> = {};
+                        let totalValidBuffers = 0;
+                        
+                        windowBuffers.forEach((buffer, topicKey) => {
+                            // Clean up old entries for this topic
+                            while (buffer.length && buffer[0].end < windowStartGlobal) {
+                                buffer.shift();
+                            }
+                            
+                            this.logger.log(`Topic ${topicKey} buffer size after cleanup: ${buffer.length}`);
+                            this.logger.log(`Topic ${topicKey} buffer contents after cleanup: ${JSON.stringify(buffer)}`);
+                            
+                            if (buffer.length > 0) {
+                                totalValidBuffers++;
+                                // Calculate aggregation for this specific topic
+                                const target = { start: windowStartGlobal, end: now };
+                                const aggregation = buffer[buffer.length - 1].agg;
+                                
+                                this.logger.log(`DEBUG: About to call mergeMultipleSlidingWindowResults for topic ${topicKey}`);
+                                this.logger.log(`DEBUG: Buffer for ${topicKey}: ${JSON.stringify(buffer)}`);
+                                this.logger.log(`DEBUG: Target window: ${JSON.stringify(target)}`);
+                                this.logger.log(`DEBUG: Aggregation type: ${aggregation}`);
+                                
+                                const topicResult = mergeMultipleSlidingWindowResults(buffer, target, aggregation);
+                                aggregationResults[topicKey] = topicResult;
+                                
+                                this.logger.log(`Aggregation result for topic ${topicKey}: ${topicResult}`);
+                            }
+                        });
+                        
                         lastTriggerTime = Date.now();
-                        if (windowBuffer.length > r2sTopics.length) {
-                            const target = { start: windowStartGlobal, end: now };
-                            const aggregation = windowBuffer[windowBuffer.length - 1].agg;
-                            const merged = mergeMultipleSlidingWindowResults(windowBuffer, target, aggregation);
+                        
+                        // Log detailed information about the aggregation decision
+                        this.logger.log(`Aggregation decision: totalValidBuffers=${totalValidBuffers}, r2sTopics.length=${r2sTopics.length}, r2sTopics=${JSON.stringify(r2sTopics)}`);
+                        this.logger.log(`Current aggregation results: ${JSON.stringify(aggregationResults)}`);
+                        
+                        // Publish results if we have at least one valid buffer or if we have any aggregation results
+                        // This is more flexible than waiting for all topics, especially with timing misalignments
+                        if (totalValidBuffers > 0 && Object.keys(aggregationResults).length > 0) {
+                            // Calculate unified cross-sensor average like the other approaches
+                            const topicValues = Object.values(aggregationResults).filter(val => typeof val === 'number') as number[];
+                            const unifiedAverage = topicValues.length > 0 ? 
+                                topicValues.reduce((sum, val) => sum + val, 0) / topicValues.length : 0;
+                            
+                            this.logger.log(`Computing unified cross-sensor average: ${JSON.stringify(topicValues)} -> ${unifiedAverage}`);
+                            
+                            // Publish unified result similar to other approaches
+                            const finalResult = {
+                                timestamp: now,
+                                window: { start: windowStartGlobal, end: now },
+                                unifiedAverage: unifiedAverage,
+                                individualTopics: aggregationResults, // Keep individual results for debugging
+                                metadata: {
+                                    validBuffers: totalValidBuffers,
+                                    expectedTopics: r2sTopics.length,
+                                    availableTopics: Object.keys(aggregationResults),
+                                    topicCount: topicValues.length
+                                }
+                            };
 
-                            windowBuffer.forEach((win, idx) => {
-                                console.log(`Window ${idx + 1}: [${win.start}, ${win.end}] with value ${win.value}`);
-                            });
+                            this.logger.log(`Final aggregation results: ${JSON.stringify(finalResult)}`);
 
-                            console.log(`Merged result for window [${target.start}, ${target.end}]:`, merged);
+                            // Check if client is connected before publishing
+                            if (rsp_client.connected) {
+                                // Publish with QoS 1 and error handling
 
-                            rsp_client.publish('approximation/output', JSON.stringify(merged));
-                            console.log(`Published merged result to 'approximation/output' topic:`, merged);
+                                rsp_client.publish('approximation/output', JSON.stringify(finalResult), { qos: 1 }, (error) => {
+                                    if (error) {
+                                        console.error('Failed to publish aggregated results:', error);
+                                        this.logger.log(`Failed to publish aggregated results: ${error}`);
+                                    } else {
+                                        console.log(`Successfully published unified cross-sensor average: ${unifiedAverage}`);
+                                        this.logger.log(`Successfully published unified cross-sensor average: ${unifiedAverage}`);
+                                    }
+                                });
+                            } else {
+                                console.warn('MQTT client not connected, cannot publish results');
+                                this.logger.log('MQTT client not connected, cannot publish results');
+                            }
+                        } else {
+                            this.logger.log(`Not enough valid topic buffers or results (${totalValidBuffers} buffers, ${Object.keys(aggregationResults).length} results) to publish. Expected topics: ${r2sTopics.length}`);
                         }
                     }
                 } catch (error) {
-                    console.log(`Error processing message from topic ${topic}:`, error);
+                    this.logger.log(`Error processing message from topic ${topic}: ${error}`);
                 }
             })
         });
@@ -302,24 +455,66 @@ export function mergeSlidingWindowResults(
         return 'Not Supported';
     }
 }
+
+
+
 export function mergeMultipleSlidingWindowResults(
     windows: Array<{ start: number; end: number; value: number }>,
     target: { start: number; end: number },
     agg: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX'
 ): number | string {
+    console.log(`DEBUG: mergeMultipleSlidingWindowResults called with:`);
+    console.log(`  - windows:`, JSON.stringify(windows));
+    console.log(`  - target:`, JSON.stringify(target));
+    console.log(`  - aggregation:`, agg);
+
     // Filter windows that overlap target
     const overlapping = windows.filter(w => w.end > target.start && w.start < target.end);
+    console.log(`DEBUG: Found ${overlapping.length} overlapping windows:`, JSON.stringify(overlapping));
+    
     if (overlapping.length === 0) return 0;
 
     // MIN/MAX aggregation - straightforward from overlapping window values
     if (agg === 'MIN') {
-        return Math.min(...overlapping.map(w => w.value));
+        const result = Math.min(...overlapping.map(w => w.value));
+        console.log(`DEBUG: MIN result:`, result);
+        return result;
     }
     if (agg === 'MAX') {
-        return Math.max(...overlapping.map(w => w.value));
+        const result = Math.max(...overlapping.map(w => w.value));
+        console.log(`DEBUG: MAX result:`, result);
+        return result;
     }
 
-    // For SUM, AVG, COUNT: partition target window by all unique boundaries from overlapping windows
+    // For AVG: Calculate weighted average based on overlap duration with target window
+    if (agg === 'AVG') {
+        let weightedSum = 0;
+        let totalWeight = 0;
+
+        console.log(`DEBUG: Calculating weighted average:`);
+        overlapping.forEach((w, idx) => {
+            // Calculate overlap duration between window and target
+            const overlapStart = Math.max(w.start, target.start);
+            const overlapEnd = Math.min(w.end, target.end);
+            const overlapDuration = overlapEnd - overlapStart;
+            
+            console.log(`DEBUG: Window ${idx}: value=${w.value}, overlapDuration=${overlapDuration}`);
+            
+            if (overlapDuration > 0) {
+                // For averages, weight by overlap duration
+                const contribution = w.value * overlapDuration;
+                weightedSum += contribution;
+                totalWeight += overlapDuration;
+                console.log(`DEBUG: Added contribution=${contribution}, totalWeight=${totalWeight}, weightedSum=${weightedSum}`);
+            }
+        });
+
+        const result = totalWeight > 0 ? weightedSum / totalWeight : 0;
+        console.log(`DEBUG: Final AVG calculation: weightedSum=${weightedSum} / totalWeight=${totalWeight} = ${result}`);
+        return result;
+    }
+
+    // For SUM and COUNT: partition target window by all unique boundaries from overlapping windows
     const boundaries = new Set<number>();
     boundaries.add(target.start);
     boundaries.add(target.end);
@@ -331,7 +526,6 @@ export function mergeMultipleSlidingWindowResults(
     const sortedBoundaries = Array.from(boundaries).sort((a, b) => a - b);
 
     let totalSum = 0;
-    let totalDuration = 0;
 
     for (let i = 0; i < sortedBoundaries.length - 1; i++) {
         const subStart = sortedBoundaries[i];
@@ -343,29 +537,21 @@ export function mergeMultipleSlidingWindowResults(
         const coveringWindows = overlapping.filter(w => w.start <= subStart && w.end >= subEnd);
         if (coveringWindows.length === 0) continue;
 
-        // Compute sum of rates (value / duration) for windows covering subinterval
-        const subValueRateSum = coveringWindows.reduce((acc, w) => {
-            const windowDuration = w.end - w.start;
-            if (windowDuration <= 0) return acc;
-            const rate = w.value / windowDuration;
-            return acc + rate;
-        }, 0);
-
-        // Add weighted contribution for this subinterval
-        totalSum += subValueRateSum * subDuration;
-        totalDuration += subDuration;
+        if (agg === 'SUM') {
+            // For SUM: treat values as rates and integrate over time
+            const subValueRateSum = coveringWindows.reduce((acc, w) => {
+                const windowDuration = w.end - w.start;
+                if (windowDuration <= 0) return acc;
+                const rate = w.value / windowDuration;
+                return acc + rate;
+            }, 0);
+            totalSum += subValueRateSum * subDuration;
+        } else if (agg === 'COUNT') {
+            // For COUNT: sum the values directly
+            const subValueSum = coveringWindows.reduce((acc, w) => acc + w.value, 0);
+            totalSum += subValueSum;
+        }
     }
 
-    if (agg === 'COUNT') {
-        // COUNT treated similar to SUM of rates over time
-        return totalSum;
-    }
-    if (agg === 'SUM') {
-        return totalSum;
-    }
-    if (agg === 'AVG') {
-        return totalDuration > 0 ? totalSum / totalDuration : 0;
-    }
-
-    return 'Not Supported';
+    return totalSum;
 }

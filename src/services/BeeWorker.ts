@@ -1,10 +1,9 @@
 import { QueryCombiner } from "hive-thought-rewriter";
 import { ContainmentChecker } from "rspql-containment-checker";
 import { ExtractedQuery, QueryMap } from "../util/Types";
-import { generateQuery } from "../util/Util";
 import { StreamingQueryChunkAggregatorOperator } from "./operators/StreamingQueryChunkAggregatorOperator";
 import { ApproximationApproachOperator } from "./operators/RateBasedApproximationApproachOperator";
-import { IQueryOperator } from "../util/Interfaces";
+import { IStreamQueryOperator } from "../util/Interfaces";
 
 /**
  *
@@ -14,7 +13,7 @@ export class BeeWorker {
     private query: string;
     private r2s_topic: string;
     private containmentChecker: ContainmentChecker;
-    private operator: IQueryOperator;
+    private operator: IStreamQueryOperator;
     private queryCombiner: QueryCombiner;
     private queryFetchLocation: string;
     /**
@@ -24,7 +23,7 @@ export class BeeWorker {
         const operatorType = process.env.OPERATOR_TYPE;
         if (operatorType === "StreamingQueryChunkAggregatorOperator") {
             this.operator = new StreamingQueryChunkAggregatorOperator();
-        } else if (operatorType === "ApproximationApproachOperator") {
+        } else if (operatorType === "ApproximationApproachOperator" || operatorType === "RateBasedApproximationApproachOperator") {
             this.operator = new ApproximationApproachOperator();
         } else {
             throw new Error(`Unsupported operator type: ${operatorType}`);
@@ -34,21 +33,46 @@ export class BeeWorker {
         this.queryFetchLocation = "http://localhost:8080/fetchQueries";
         const query = process.env.QUERY;
         const r2s_topic = process.env.TOPIC;
+        const subQueriesStr = process.env.SUB_QUERIES;
         if (!query || !r2s_topic) {
             throw new Error("Missing required environment variables");
         }
         this.query = query;
         this.r2s_topic = r2s_topic;
+        
+        // Parse subqueries from environment if provided
+        console.log(`Raw SUB_QUERIES env var: ${subQueriesStr}`);
+        const providedSubQueries = subQueriesStr ? JSON.parse(subQueriesStr) : [];
+        
         console.log(`BeeWorker initialized with query: ${this.query} and topic: ${this.r2s_topic}`);
-        this.process();
+        console.log(`Provided subqueries: ${providedSubQueries.length} queries`);
+        console.log(`Provided subqueries content:`, providedSubQueries);
+        this.process(providedSubQueries);
     }
 
     /**
      *
      */
-    async process() {
+    async process(providedSubQueries: string[] = []) {
         console.log(`process() method is called`);
 
+        // If subqueries are provided from Orchestrator, use them directly
+        if (providedSubQueries && providedSubQueries.length > 0) {
+            console.log(`Using provided subqueries: ${providedSubQueries.length} queries.`);
+            console.log(`Provided subqueries:`, providedSubQueries);
+            
+            this.operator.addOutputQuery(this.query);
+            for (const subQuery of providedSubQueries) {
+                console.log(`Adding subquery to operator: ${subQuery}`);
+                this.operator.addSubQuery(subQuery);
+            }
+            console.log(`Total subqueries in operator: ${this.operator.getSubQueries().length}`);
+            await this.operator.init();
+            this.operator.handleAggregation();
+            return;
+        }
+
+        // Fallback to existing logic for finding contained queries
         const existingQueries = await this.fetchExistingQueries(this.queryFetchLocation);
         const extractedQueries = await this.extractQueriesWithTopics(JSON.parse(existingQueries) as QueryMap);
         const containedQueries = await this.findContainedQueries(extractedQueries);
@@ -95,7 +119,7 @@ export class BeeWorker {
             let removedAggregationFunctionQuery = this.removeAggregationFunctions(this.query);
             let extractedQueryRspql = this.removeAggregationFunctions(extractedQuery.rspql_query);
 
-            const isContained = await this.containmentChecker.checkContainment(removedAggregationFunctionQuery, extractedQueryRspql);
+            const isContained = await this.containmentChecker.checkContainment(extractedQueryRspql, removedAggregationFunctionQuery);
 
             if (isContained) {
                 console.log(`Query "${extractedQueryRspql}" is contained in the main query.`);

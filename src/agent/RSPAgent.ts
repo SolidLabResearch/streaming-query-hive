@@ -152,15 +152,6 @@ export class RSPAgent {
                     const data = item.value;
                     console.log("Binding data received:", data);
                     rstream_publisher.publish(this.r2s_topic, data);
-
-                    const aggregation_event = this.generate_aggregation_event(data, aggregation_event_timestamp);
-                    const aggregation_object_string = JSON.stringify(aggregation_event);
-
-                    rstream_publisher.publish(this.r2s_topic, aggregation_object_string, (err: any) => {
-                        if (err) {
-                        } else {
-                        }
-                    });
                 }
             });
         });

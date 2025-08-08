@@ -12,7 +12,10 @@ const logger = new CSVLogger('replayer-log.csv');
  */
 
 async function replaySmartphoneXStream() {
-    const publisher = new StreamToMQTT('mqtt://localhost:1883', 4, 'src/streamer/data/smartphone.acceleration.x/data.nt', "smartphoneX");
+    // Pass a unique clientId for persistent MQTT session
+    const clientId = 'pub-' + Math.random().toString(16).substr(2, 8);
+    const mqttOptions = { clean: false, clientId };
+    const publisher = new StreamToMQTT('mqtt://localhost:1883', 4, 'src/streamer/data/smartphone.acceleration.x/data.nt', "smartphoneX", mqttOptions);
     logger.log("Starting replay for SmartphoneX stream");
     await publisher.replay_streams();
     logger.log("Replay completed for SmartphoneX stream");
@@ -23,7 +26,10 @@ async function replaySmartphoneXStream() {
  *
  */
 async function replayWearableXStream() {
-    const publisher = new StreamToMQTT('mqtt://localhost:1883', 4, 'src/streamer/data/wearable.acceleration.x/data.nt', "wearableX");
+    // Pass a unique clientId for persistent MQTT session
+    const clientId = 'pub-' + Math.random().toString(16).substr(2, 8);
+    const mqttOptions = { clean: false, clientId };
+    const publisher = new StreamToMQTT('mqtt://localhost:1883', 4, 'src/streamer/data/wearable.acceleration.x/data.nt', "wearableX", mqttOptions);
     logger.log("Starting replay for WearableX stream");
     await publisher.replay_streams();
     logger.log("Replay completed for WearableX stream");

@@ -2,9 +2,9 @@ const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const RUNS = 1;
+const RUNS = 5;
 const LOGS_DIR = 'logs/streaming-query-hive';
-const APPROACH_CMD = ['node', ['dist/approaches/StreamingQueryHiveApproachOrchestrator.js']];
+const APPROACH_CMD = ['node', ['dist/approaches/StreamingQueryChunkedApproachOrchestrator.js']];
 const PUBLISH_CMD = ['node', ['dist/streamer/src/publish.js']];
 const LOG_FILES = [
   'streaming_query_chunk_aggregator_log.csv',
@@ -61,16 +61,12 @@ async function runOnce(iter) {
       fs.renameSync(file, newName);
     }
   }
-
-  // Terminate the process after files are moved
-  process.exit(0);
 }
 
 (async () => {
-  await runOnce(1);
-  // for (let i = 1; i <= RUNS; i++) {
-  //   await runOnce(1);
-  //   await new Promise(res => setTimeout(res, 2000));
-  // }
+  for (let i = 1; i <= RUNS; i++) {
+    await runOnce(i);
+    await new Promise(res => setTimeout(res, 2000));
+  }
   console.log('All Streaming Query Hive runs complete.');
 })();
