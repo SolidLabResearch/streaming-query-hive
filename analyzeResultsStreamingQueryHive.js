@@ -4,14 +4,14 @@ const csvParse = require('csv-parse/sync');
 
 const LOGS_DIR = 'logs/streaming-query-hive';
 const OUT_CSV = 'streaming_query_hive_latency_summary.csv';
-const ITERATIONS = 35; // or detect dynamically
-const NUM_CORES = 8; // Set this to the number of logical CPU cores on your system
+const ITERATIONS = 1; // or detect dynamically
+const NUM_CORES = 10; // Set this to the number of logical CPU cores on your system
 
 const summaryRows = [['iteration', 'registered_query_ts', 'first_result_ts', 'latency_ms', 'result_value', 'avg_cpu_percent', 'avg_heapUsedMB']];
 
 for (let i = 1; i <= ITERATIONS; i++) {
   const logPath = path.join(LOGS_DIR, `iteration${i}`, 'streaming_query_chunk_aggregator_log.csv');
-  const resourcePath = path.join(LOGS_DIR, `iteration${i}`, 'streaming_query_hive_resource_log.log');
+  const resourcePath = path.join(LOGS_DIR, `iteration${i}`, 'streaming_query_hive_resource_log.csv');
   let avgCpuPercent = '';
   let avgHeapUsedMB = '';
 
@@ -45,15 +45,28 @@ for (let i = 1; i <= ITERATIONS; i++) {
     summaryRows.push([i, '', '', '', '', avgCpuPercent, avgHeapUsedMB]);
     continue;
   }
+  
   let content = fs.readFileSync(logPath, 'utf8');
-  // Remove repeated header lines
-  content = content
-    .split('\n')
-    .filter((line, idx) => line.trim() !== 'timestamp,message' || idx === 0)
-    .join('\n');
-  // Replace escaped quotes with double quotes for CSV compliance
-  content = content.replace(/\\"/g, '""');
-  const records = csvParse.parse(content, { columns: true, skip_empty_lines: true });
+  let records;
+  try {
+    // Remove repeated header lines
+    content = content
+      .split('\n')
+      .filter((line, idx) => line.trim() !== 'timestamp,message' || idx === 0)
+      .join('\n');
+    // Replace escaped quotes with double quotes for CSV compliance
+    content = content.replace(/\\"/g, '""');
+    records = csvParse.parse(content, { 
+      columns: true, 
+      skip_empty_lines: true,
+      relax_quotes: true,
+      skip_records_with_error: true
+    });
+  } catch (err) {
+    console.warn(`Error parsing CSV for iteration ${i}: ${err.message}`);
+    summaryRows.push([i, '', '', '', '', avgCpuPercent, avgHeapUsedMB]);
+    continue;
+  }
 
   let registeredTs = null;
   let resultTs = null;
@@ -65,9 +78,15 @@ for (let i = 1; i <= ITERATIONS; i++) {
     }
     if (registeredTs && !resultTs && row.message && row.message.includes('calculated result')) {
       resultTs = Number(row.timestamp);
-      // Try to extract the value from the message (between quotes)
-      const valueMatch = row.message.match(/"([0-9.]+)"/);
-      resultValue = valueMatch ? valueMatch[1] : '';
+      // Try to extract the value from the message (look for hasValue with a numeric value)
+      const valueMatch = row.message.match(/hasValue[^"]*"([+-]?\d*\.?\d+)"/);
+      if (valueMatch) {
+        resultValue = valueMatch[1];
+      } else {
+        // Fallback: try to find any number in quotes
+        const fallbackMatch = row.message.match(/"([+-]?\d*\.?\d+)"/);
+        resultValue = fallbackMatch ? fallbackMatch[1] : '';
+      }
       break; // Only the first result after registration
     }
   }

@@ -16,6 +16,7 @@ export class FetchingAllDataClientSide {
     public rspql_parser: RSPQLParser;
     public rsp_engine: RSPEngine;
     public rstream_emitter: EventEmitter;
+    private logStream!: fs.WriteStream;
     private windowStreamMap: { [key: string]: string } = {
         "mqtt://localhost:1883/wearableX": "https://rsp.jsw1",
         "mqtt://localhost:1883/smartphoneX": "https://rsp.jsw1",
@@ -24,6 +25,7 @@ export class FetchingAllDataClientSide {
     private tolerance: number = 5000; // 5 second tolerance
     private startTime: number = 0; // Track when processing started
     private lastValidResultTime: number = 0; // Track last valid result timing
+    private queryRegisteredTime: number = 0; // Track when query was registered
 
 
     /**
@@ -38,9 +40,38 @@ export class FetchingAllDataClientSide {
         this.rsp_engine = new RSPEngine(query);
         this.rstream_emitter = this.rsp_engine.register();
         this.startTime = Date.now(); // Initialize start time for filtering
+        this.queryRegisteredTime = Date.now(); // Track when query was registered
+        
+        // Initialize CSV logging for this approach
+        this.initializeLogging();
+        this.log('fetching_query_registered');
+        
         this.subscribeRStream();
         this.startResourceUsageLogging();
+    }
 
+    /**
+     * Initialize CSV logging for this approach
+     */
+    private initializeLogging() {
+        const logFilePath = 'fetching_client_side_log.csv';
+        const writeHeader = !fs.existsSync(logFilePath);
+        this.logStream = fs.createWriteStream(logFilePath, { flags: 'a' });
+        
+        if (writeHeader) {
+            this.logStream.write('timestamp,message\n');
+        }
+    }
+
+    /**
+     * Log a message with timestamp
+     */
+    public log(message: string) {
+        const timestamp = Date.now();
+        if (this.logStream) {
+            this.logStream.write(`${timestamp},"${message}"\n`);
+        }
+        console.log(`LOG: ${timestamp} - ${message}`);
     }
 
     /**
@@ -72,15 +103,21 @@ export class FetchingAllDataClientSide {
             rsp_client.on("message", async (topic: any, message: any) => {
                 try {
                     const message_string = message.toString();
+                    this.log(`Received raw data on topic ${topic}: ${message_string.substring(0, 100)}...`);
+                    
                     const latest_event_store = await turtleStringToStore(message_string);
                     const timestamp = latest_event_store.getQuads(null, DataFactory.namedNode("https://saref.etsi.org/core/hasTimestamp"), null, null)[0].object.value;
                     const timestamp_epoch = Date.parse(timestamp);
+                    
+                    this.log(`Parsed data with timestamp: ${timestamp} (epoch: ${timestamp_epoch})`);
 
                     if (rsp_stream_object) {
                         await this.add_event_store_to_rsp_engine(latest_event_store, rsp_stream_object, timestamp_epoch);
+                        this.log(`Added data to RSP engine for stream: ${stream_name}`);
                     }
                 } catch (error) {
                     console.error("Error processing message:", error);
+                    this.log(`Error processing message: ${error}`);
                 }
             });
         }
@@ -185,17 +222,25 @@ export class FetchingAllDataClientSide {
                 const data = item.value;
                 const currentTimestamp = Date.now();
                 
+                this.log(`RStream result generated: ${data} at timestamp: ${currentTimestamp}`);
+                
                 // Apply timing filter to ignore extra dynamic windows
                 if (!this.isWithinExpectedWindowTiming(currentTimestamp)) {
                     // Skip this result - it's from an extra dynamic window
+                    this.log(`Filtered out result due to timing: ${data}`);
                     continue;
                 }
+                
+                this.log(`Processing valid result: ${data}`);
                 
                 // Debug: print the full binding object
                 console.log("DEBUG: RStream binding:", item);
                 const aggregation_event = this.generate_aggregation_event(data);
                 const aggregation_object_string = JSON.stringify(aggregation_event);
                 console.log(`Aggregation event generated: ${aggregation_object_string}`);
+                
+                this.log(`Generated aggregation event for result: ${data}`);
+                
                 // Generate a unique clientId for persistent session
                 const clientId = hash_string_md5(aggregation_object_string);
                 // const clientId = 'pub-' + Math.random().toString(16).substr(2, 8);
@@ -204,8 +249,10 @@ export class FetchingAllDataClientSide {
                     pubClient.publish(this.r2s_topic, aggregation_object_string, { qos: 2 }, (err: any) => {
                         if (err) {
                             console.error("Error publishing aggregation event with QoS 2:", err);
+                            this.log(`Error publishing result: ${err}`);
                         } else {
                             console.log("Aggregation event published with QoS 2");
+                            this.log(`Successfully published result: ${data}`);
                         }
                         pubClient.end();
                     });
@@ -230,11 +277,20 @@ export class FetchingAllDataClientSide {
     }
 
     /**
+     * Clean up resources
+     */
+    public cleanup() {
+        if (this.logStream) {
+            this.logStream.end();
+        }
+    }
+
+    /**
      *
      * @param filePath
      * @param intervalMs
      */
-    startResourceUsageLogging(filePath = 'fetching_data_client_side.csv', intervalMs = 100) {
+    startResourceUsageLogging(filePath = 'fetching_client_side_resource_usage.csv', intervalMs = 100) {
         const writeHeader = !fs.existsSync(filePath);
         const logStream = fs.createWriteStream(filePath, { flags: 'a' });
         if (writeHeader) {
@@ -295,6 +351,20 @@ WHERE {
 
     const r2s_topic = "client_operation_output";
     const client = new FetchingAllDataClientSide(query, r2s_topic);
+    
+    // Add cleanup handlers
+    process.on('exit', () => client.cleanup());
+    process.on('SIGINT', () => {
+        client.log('Process interrupted, cleaning up...');
+        client.cleanup();
+        process.exit(0);
+    });
+    process.on('SIGTERM', () => {
+        client.log('Process terminated, cleaning up...');
+        client.cleanup();
+        process.exit(0);
+    });
+    
     client.process_streams();
 }
 

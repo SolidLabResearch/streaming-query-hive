@@ -2,13 +2,13 @@ const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const RUNS = 5;
+const RUNS = 1;
 const LOGS_DIR = 'logs/streaming-query-hive';
 const APPROACH_CMD = ['node', ['dist/approaches/StreamingQueryChunkedApproachOrchestrator.js']];
 const PUBLISH_CMD = ['node', ['dist/streamer/src/publish.js']];
 const LOG_FILES = [
   'streaming_query_chunk_aggregator_log.csv',
-  'streaming_query_hive_resource_log.log',
+  'streaming_query_hive_resource_log.csv',
   'replayer-log.csv'
 ];
 const TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes

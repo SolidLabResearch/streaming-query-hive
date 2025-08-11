@@ -2,16 +2,16 @@ const fs = require('fs');
 const path = require('path');
 const csvParse = require('csv-parse/sync');
 
-const LOGS_DIR = 'logs/approximation-approach';
+const LOGS_DIR = '/Users/kushbisen/Code/streaming-query-hive/logs/approximation-approach';
 const OUT_CSV = 'approximation_approach_latency_summary.csv';
-const ITERATIONS = 35; // or detect dynamically
-const NUM_CORES = 8; // Set this to the number of logical CPU cores on your system
+const ITERATIONS = 1; // or detect dynamically
+const NUM_CORES = 10; // Set this to the number of logical CPU cores on your system
 
 let summaryRows = [['iteration', 'registered_query_ts', 'first_result_ts', 'latency_ms', 'result_value', 'avg_cpu_percent', 'avg_heapUsedMB']];
 
 for (let i = 1; i <= ITERATIONS; i++) {
-  const logPath = path.join(LOGS_DIR, `iteration${i}`, 'approximation_log.csv');
-  const resourcePath = path.join(LOGS_DIR, `iteration${i}`, 'approximation_resource_usage.csv');
+  const logPath = path.join(LOGS_DIR, `iteration${i}`, 'streaming_query_approximation_approach_log.csv');
+  const resourcePath = path.join(LOGS_DIR, `iteration${i}`, 'approximation_approach_resource_usage.csv');
   let avgCpuPercent = '';
   let avgHeapUsedMB = '';
 
@@ -46,19 +46,39 @@ for (let i = 1; i <= ITERATIONS; i++) {
     continue;
   }
   let content = fs.readFileSync(logPath, 'utf8');
-  const records = csvParse.parse(content, { columns: true, skip_empty_lines: true });
+  let records;
+  try {
+    records = csvParse.parse(content, { 
+      columns: true, 
+      skip_empty_lines: true,
+      relax_quotes: true,
+      skip_records_with_error: true
+    });
+  } catch (err) {
+    console.warn(`Error parsing CSV for iteration ${i}: ${err.message}`);
+    summaryRows.push([i, '', '', '', '', avgCpuPercent, avgHeapUsedMB]);
+    continue;
+  }
 
   let registeredTs = null;
   let resultTs = null;
   let resultValue = '';
 
   for (const row of records) {
-    if (!registeredTs && row.message && row.message === 'approximation_query_registered') {
+    if (!registeredTs && row.message && row.message.includes('Registered query:')) {
       registeredTs = Number(row.timestamp);
     }
-    if (registeredTs && !resultTs && row.message && !isNaN(Number(row.message))) {
+    if (registeredTs && !resultTs && row.message && row.message.includes('calculated result')) {
       resultTs = Number(row.timestamp);
-      resultValue = row.message;
+      // Try to extract the value from the message (look for hasValue with a numeric value)
+      const valueMatch = row.message.match(/hasValue[^"]*"([+-]?\d*\.?\d+)"/);
+      if (valueMatch) {
+        resultValue = valueMatch[1];
+      } else {
+        // Fallback: try to find any number in quotes
+        const fallbackMatch = row.message.match(/"([+-]?\d*\.?\d+)"/);
+        resultValue = fallbackMatch ? fallbackMatch[1] : '';
+      }
       break; // Only the first result after registration
     }
   }

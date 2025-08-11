@@ -4,11 +4,11 @@ const path = require('path');
 
 const RUNS = 1;
 const LOGS_DIR = 'logs/approximation-approach';
-const APPROACH_CMD = ['node', ['dist/approaches/ApproximationApproachOrchestrator.js']];
+const APPROACH_CMD = ['node', ['dist/approaches/StreamingQueryApproximationApproachOrchestrator.js']];
 const PUBLISH_CMD = ['node', ['dist/streamer/src/publish.js']];
 const LOG_FILES = [
-  'approximation_log.csv',
-  'approximation_resource_usage.csv',
+  'streaming_query_approximation_approach_log.csv',
+  'approximation_approach_resource_usage.csv',
   'replayer-log.csv'
 ];
 const TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
