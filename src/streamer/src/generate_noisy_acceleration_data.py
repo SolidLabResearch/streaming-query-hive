@@ -168,9 +168,7 @@ def main():
         generator.generate_custom_noise_levels(args.noise_levels, args.output_path)
     else:
         generator.generate_all_datasets(args.output_path)
-    
-    print("\\n✅ Dataset generation complete!")
-    print(f"\\n📁 Output structure:")
+        
     if args.output_path:
         output_path = Path(args.output_path)
     else:
