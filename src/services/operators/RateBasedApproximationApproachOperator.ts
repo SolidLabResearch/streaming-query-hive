@@ -198,6 +198,9 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                 console.log("No valid r2s topics found for the values.");
                 return;
             }
+            
+            console.log(`About to subscribe to ${r2sTopics.length} topics:`, r2sTopics);
+            this.logger.log(`About to subscribe to ${r2sTopics.length} topics: ${JSON.stringify(r2sTopics)}`);
 
             for (const mqttTopic of r2sTopics) {
                 rsp_client.subscribe(mqttTopic, (err: any) => {
@@ -212,9 +215,13 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
             // Use separate buffers for each topic/variable
             const windowBuffers: Map<string, Array<{ start: number, end: number, value: number, agg: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX' }>> = new Map();
 
+            // Global tracking of latest values from all topics - this persists across windows
+            const globalLatestValues: Map<string, { value: number, timestamp: number }> = new Map();
+
             let lastTriggerTime = Date.now();
 
             rsp_client.on("message", (topic: string, message: any) => {
+                console.log(`[DEBUG] Received message on topic ${topic}: ${message.toString().substring(0, 100)}...`);
                 this.logger.log(`Received message on topic ${topic}: ${message.toString()}`);
 
                 try {
@@ -245,7 +252,8 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                     const params = window_parameters[topic];
 
                     if (!params) {
-                        this.logger.log(`No window parameters found for topic ${topic}`);
+                        console.log(`[DEBUG] No window parameters found for topic ${topic}. Available topics in window_parameters:`, Object.keys(window_parameters));
+                        this.logger.log(`No window parameters found for topic ${topic}. Available topics: ${JSON.stringify(Object.keys(window_parameters))}`);
                         console.error(`No window parameters found for topic ${topic}`);
                         return;
                     }
@@ -277,6 +285,10 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                     }
                     windowBuffers.get(topic)!.push(result);
 
+                    // ALWAYS update global latest values for ALL topics receiving data
+                    globalLatestValues.set(topic, { value: value, timestamp: now });
+                    this.logger.log(`Updated global latest value for topic ${topic}: ${value} at ${now}`);
+
                     // Log current buffer state for all topics
                     this.logger.log(`After adding result - Topic ${topic} buffer size: ${windowBuffers.get(topic)!.length}`);
                     const allTopicBufferSizes: Record<string, number> = {};
@@ -284,6 +296,13 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                         allTopicBufferSizes[topicKey] = buffer.length;
                     });
                     this.logger.log(`All topic buffer sizes after message: ${JSON.stringify(allTopicBufferSizes)}`);
+                    
+                    // Log all global latest values
+                    const globalLatestValuesObj: Record<string, any> = {};
+                    globalLatestValues.forEach((valData, topicKey) => {
+                        globalLatestValuesObj[topicKey] = { value: valData.value, timestamp: valData.timestamp };
+                    });
+                    this.logger.log(`Global latest values: ${JSON.stringify(globalLatestValuesObj)}`);
 
                     if (Date.now() - lastTriggerTime >= outputQuerySlide) {
                         const windowStartGlobal = now - outputQueryWidth;
@@ -297,8 +316,8 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                             }
                         });
                         
-                        // Wait a bit if we don't have data from all expected topics yet
-                        const bufferTimeMs = 1000; // 1 second buffer
+                        // More flexible waiting strategy - wait a bit longer for all topics
+                        const bufferTimeMs = 3000; // 3 second buffer to allow for timing differences
                         const shouldWaitForMoreTopics = (topicsWithValidData < r2sTopics.length) && 
                                                        (Date.now() - lastTriggerTime < outputQuerySlide + bufferTimeMs);
                         
@@ -316,8 +335,9 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                         });
                         this.logger.log(`Current window buffer sizes before cleanup: ${JSON.stringify(topicBufferSizes)}`);
                         
-                        // Clean up old windows for each topic buffer
+                        // Clean up old windows for each topic buffer and collect latest values
                         const aggregationResults: Record<string, number | string> = {};
+                        const latestValues: Record<string, number> = {}; // Keep track of latest values from each topic
                         let totalValidBuffers = 0;
                         
                         windowBuffers.forEach((buffer, topicKey) => {
@@ -343,7 +363,34 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                                 const topicResult = mergeMultipleSlidingWindowResults(buffer, target, aggregation);
                                 aggregationResults[topicKey] = topicResult;
                                 
+                                // Store the latest value for cross-sensor averaging
+                                if (typeof topicResult === 'number') {
+                                    latestValues[topicKey] = topicResult;
+                                }
+                                
                                 this.logger.log(`Aggregation result for topic ${topicKey}: ${topicResult}`);
+                            } else {
+                                // If no current window data, try to use the most recent value from this topic
+                                // Look through all buffered data for this topic to find the most recent value
+                                const allTopicData = windowBuffers.get(topicKey);
+                                if (allTopicData && allTopicData.length > 0) {
+                                    // Get the most recent value regardless of window
+                                    const mostRecentValue = allTopicData[allTopicData.length - 1].value;
+                                    latestValues[topicKey] = mostRecentValue;
+                                    this.logger.log(`Using most recent value for topic ${topicKey}: ${mostRecentValue} (outside current window)`);
+                                }
+                            }
+                        });
+                        
+                        // Also check if we have any recent data for expected topics that might not be in windowBuffers yet
+                        r2sTopics.forEach(expectedTopic => {
+                            if (!latestValues[expectedTopic] && windowBuffers.has(expectedTopic)) {
+                                const buffer = windowBuffers.get(expectedTopic)!;
+                                if (buffer.length > 0) {
+                                    const mostRecentValue = buffer[buffer.length - 1].value;
+                                    latestValues[expectedTopic] = mostRecentValue;
+                                    this.logger.log(`Added latest value for expected topic ${expectedTopic}: ${mostRecentValue}`);
+                                }
                             }
                         });
                         
@@ -352,28 +399,63 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                         // Log detailed information about the aggregation decision
                         this.logger.log(`Aggregation decision: totalValidBuffers=${totalValidBuffers}, r2sTopics.length=${r2sTopics.length}, r2sTopics=${JSON.stringify(r2sTopics)}`);
                         this.logger.log(`Current aggregation results: ${JSON.stringify(aggregationResults)}`);
+                        this.logger.log(`Latest values from all topics: ${JSON.stringify(latestValues)}`);
                         
-                        // Publish results if we have at least one valid buffer or if we have any aggregation results
-                        // This is more flexible than waiting for all topics, especially with timing misalignments
-                        if (totalValidBuffers > 0 && Object.keys(aggregationResults).length > 0) {
-                            // Calculate unified cross-sensor average like the other approaches
-                            const topicValues = Object.values(aggregationResults).filter(val => typeof val === 'number') as number[];
-                            const unifiedAverage = topicValues.length > 0 ? 
-                                topicValues.reduce((sum, val) => sum + val, 0) / topicValues.length : 0;
+                        // Publish results if we have at least one valid buffer or latest values from multiple topics
+                        const hasMultipleTopicData = Object.keys(latestValues).length >= 2;
+                        const hasAnyValidData = totalValidBuffers > 0 || Object.keys(latestValues).length > 0;
+                        
+                        if (hasAnyValidData) {
+                        // Calculate unified cross-sensor average using latest values from all available topics
+                        // First priority: use the latest global values from all topics that have ever sent data
+                        const allAvailableValuesFromGlobal: number[] = [];
+                        const allTopicsWithData: string[] = [];
+                        
+                        globalLatestValues.forEach((valData, topicKey) => {
+                            allAvailableValuesFromGlobal.push(valData.value);
+                            allTopicsWithData.push(topicKey);
+                        });
+                        
+                        // If we don't have global data, fallback to latestValues from windowing
+                        const allAvailableValues = allAvailableValuesFromGlobal.length >= 2 ? 
+                            allAvailableValuesFromGlobal : Object.values(latestValues);
                             
-                            this.logger.log(`Computing unified cross-sensor average: ${JSON.stringify(topicValues)} -> ${unifiedAverage}`);
+                        const topicsUsedForAverage = allAvailableValuesFromGlobal.length >= 2 ?
+                            allTopicsWithData : Object.keys(latestValues);
+                        
+                        const unifiedAverage = allAvailableValues.length > 0 ? 
+                            allAvailableValues.reduce((sum, val) => sum + val, 0) / allAvailableValues.length : 0;
+                        
+                        this.logger.log(`Computing unified cross-sensor average using ${allAvailableValuesFromGlobal.length >= 2 ? 'global' : 'windowed'} values: ${JSON.stringify(allAvailableValues)} from topics: ${JSON.stringify(topicsUsedForAverage)} -> ${unifiedAverage}`);                            // Prepare individual topics results - prefer aggregation results, fallback to latest values, then global values
+                            const individualTopicsResults: Record<string, number | string> = { ...aggregationResults };
+                            Object.keys(latestValues).forEach(topic => {
+                                if (!individualTopicsResults[topic]) {
+                                    individualTopicsResults[topic] = latestValues[topic];
+                                }
+                            });
+                            
+                            // Also add global values if they're not already included
+                            globalLatestValues.forEach((valData, topic) => {
+                                if (!individualTopicsResults[topic]) {
+                                    individualTopicsResults[topic] = valData.value;
+                                }
+                            });
                             
                             // Publish unified result similar to other approaches
                             const finalResult = {
                                 timestamp: now,
                                 window: { start: windowStartGlobal, end: now },
                                 unifiedAverage: unifiedAverage,
-                                individualTopics: aggregationResults, // Keep individual results for debugging
+                                individualTopics: individualTopicsResults,
                                 metadata: {
                                     validBuffers: totalValidBuffers,
                                     expectedTopics: r2sTopics.length,
-                                    availableTopics: Object.keys(aggregationResults),
-                                    topicCount: topicValues.length
+                                    availableTopics: Object.keys(individualTopicsResults),
+                                    topicCount: allAvailableValues.length,
+                                    hasMultipleTopics: allAvailableValues.length >= 2,
+                                    latestValuesUsed: topicsUsedForAverage,
+                                    globalValuesAvailable: globalLatestValues.size,
+                                    usingGlobalValues: allAvailableValuesFromGlobal.length >= 2
                                 }
                             };
 
@@ -388,8 +470,8 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                                         console.error('Failed to publish aggregated results:', error);
                                         this.logger.log(`Failed to publish aggregated results: ${error}`);
                                     } else {
-                                        console.log(`Successfully published unified cross-sensor average: ${unifiedAverage}`);
-                                        this.logger.log(`Successfully published unified cross-sensor average: ${unifiedAverage}`);
+                                        console.log(`Successfully published unified cross-sensor average: ${unifiedAverage} (from ${allAvailableValues.length} topics)`);
+                                        this.logger.log(`Successfully published unified cross-sensor average: ${unifiedAverage} (from ${allAvailableValues.length} topics)`);
                                     }
                                 });
                             } else {
@@ -397,7 +479,7 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                                 this.logger.log('MQTT client not connected, cannot publish results');
                             }
                         } else {
-                            this.logger.log(`Not enough valid topic buffers or results (${totalValidBuffers} buffers, ${Object.keys(aggregationResults).length} results) to publish. Expected topics: ${r2sTopics.length}`);
+                            this.logger.log(`No valid data available for publishing. ValidBuffers: ${totalValidBuffers}, LatestValues: ${Object.keys(latestValues).length}`);
                         }
                     }
                 } catch (error) {
