@@ -103,17 +103,13 @@ export class FetchingAllDataClientSide {
             rsp_client.on("message", async (topic: any, message: any) => {
                 try {
                     const message_string = message.toString();
-                    this.log(`Received raw data on topic ${topic}: ${message_string.substring(0, 100)}...`);
                     
                     const latest_event_store = await turtleStringToStore(message_string);
                     const timestamp = latest_event_store.getQuads(null, DataFactory.namedNode("https://saref.etsi.org/core/hasTimestamp"), null, null)[0].object.value;
                     const timestamp_epoch = Date.parse(timestamp);
                     
-                    this.log(`Parsed data with timestamp: ${timestamp} (epoch: ${timestamp_epoch})`);
-
                     if (rsp_stream_object) {
                         await this.add_event_store_to_rsp_engine(latest_event_store, rsp_stream_object, timestamp_epoch);
-                        this.log(`Added data to RSP engine for stream: ${stream_name}`);
                     }
                 } catch (error) {
                     console.error("Error processing message:", error);

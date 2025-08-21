@@ -3,7 +3,7 @@ import fs, { write } from "fs";
 import { CSVLogger } from "../util/logger/CSVLogger";
 
 async function StreamingQueryApproximationApproachOrchestrator() {
-    const logger = new CSVLogger('streaming_query_approximation_approach_log.csv');
+    const logger = new CSVLogger('approximation_approach_log.csv');
     const orchestrator = new Orchestrator("ApproximationApproachOperator");
     // Add sub-queries
     const query1 = `

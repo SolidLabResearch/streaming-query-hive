@@ -4,7 +4,7 @@ const csvParse = require('csv-parse/sync');
 
 const LOGS_DIR = '/Users/kushbisen/Code/streaming-query-hive/logs/fetching-client-side';
 const OUT_CSV = 'fetching_client_side_latency_summary.csv';
-const ITERATIONS = 1; // or detect dynamically
+const ITERATIONS = 39; // or detect dynamically
 const NUM_CORES = 10; // Set this to the number of logical CPU cores on your system
 
 let summaryRows = [['iteration', 'registered_query_ts', 'first_result_ts', 'latency_ms', 'result_value', 'avg_cpu_percent', 'avg_heapUsedMB']];

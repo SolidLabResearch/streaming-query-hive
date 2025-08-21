@@ -17,31 +17,47 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
     private parser: RSPQLParser = new RSPQLParser();
 
     /**
-     *
+     * The constructor class currently does not initializes anything.
      */
     constructor() {
-        // Remove automatic init() call - let BeeWorker control the initialization timing
+
     }
 
+
+    /**
+     *
+     * The method adds a query to the subQueries array.
+     * @param {string} query - The query to be added
+     * @memberof ApproximationApproachOperator
+     */
     addSubQuery(query: string): void {
         this.subQueries.push(query);
         console.log(`Sub-query added: ${query}`);
     }
 
+    /**
+     * The method returns the string array containing the subQueries.
+     * @return {string[]} - The subQueries string array.
+     * @memberof ApproximationApproachOperator
+     */
     getSubQueries(): string[] {
         return this.subQueries;
     }
 
     /**
-     *
-     * @param query
+     * The method assigns the outputQuery string to the variable.
+     * @param {string} query - The output query.
+     * @returns {void}
      */
     addOutputQuery(query: string): void {
         this.outputQuery = query;
     }
 
     /**
-     *
+     * Initializes different variables related to the MQTT topics and extracted queries.
+     * It also initializes the method which fetches the existing queries and assigns the topic of their
+     * Results stream into the map.
+     * @returns {Promise<void>}
      */
     async init(): Promise<void> {
         this.queryMQTTTopicMap = new Map<string, string>();
@@ -53,8 +69,9 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
     }
 
     /**
-     *
-     * @param topics
+     * The method creates a Record of the result R2S topic of each query with the width and the aggregation function used in the RSP-QL Query.
+     * @param {Array<{r2s_topic : string, rspql_query : string}>} topics - The topics array which contains the result topic where the results are being posted along with the RSP-QL Query. 
+     * @returns {Record<string, {width: number, aggregation : string}} - A record containing the R2S topic, width of the query and the aggregation function. 
      */
     async createTopicWindowParameters(topics: Array<{ r2s_topic: string, rspql_query: string }>) {
         const topicWindowParameters: Record<string, { width: number, aggregation: string }> = {};
@@ -81,7 +98,9 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
     }
 
     /**
-     *
+     * The method does a GET request to the HTTP server to fetch the existing queries which are being executed 
+     * In the Query Network.
+     * @returns {Promise<void>} - Returns nothing.
      */
     async setMQTTTopicMap(): Promise<void> {
         const response = await fetch(this.queryFetchLocation);
@@ -100,8 +119,9 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
     }
 
     /**
-     *
-     * @param data
+     * The method extracts the RSP-QL queries with their respective R2S topics from the fetched data of the HTTP Server. 
+     * @param {QueryMap} data - The fetched queries running in the network which are registered in the Query Service.
+     * @returns {ExtractedQuery[]} - Extracted Query Array with RSP-QL query and the R2S topic location.
      */
     async extractQueriesWithTopics(data: QueryMap): Promise<ExtractedQuery[]> {
         const extractedQueries: ExtractedQuery[] = [];
@@ -125,26 +145,31 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
         return extractedQueries;
     }
     /**
-     *
+     * The method handles the aggregation with the subqueries, and aggregated based on approximating the resultant window based on the
+     * Initial subqueries aggregation values.
+     * @returns {Promise<void>} - Returns a void Promise.
      */
     async handleAggregation(): Promise<void> {
-        console.log(`handleAggregation called. Subqueries count: ${this.subQueries.length}`);
-        console.log(`Subqueries:`, this.subQueries);
 
         if (this.subQueries.length === 0) {
             throw new Error("No subqueries to aggregate.");
         }
-        console.log("Aggregating subqueries:", this.subQueries);
+
         const window_parameters = await this.createTopicWindowParameters(this.extractedQueries);
 
         if (this.queryMQTTTopicMap.size === 0) {
             console.log("No MQTT topics found for the subqueries.");
             return;
         }
-
+        
+        // Parsing the output RSP-QL query with it's width and the slide.
         const outputQueryParsed = this.parser.parse(this.outputQuery);
         const outputQueryWidth = outputQueryParsed.s2r[0].width;
         const outputQuerySlide = outputQueryParsed.s2r[0].slide;
+
+        if (outputQueryParsed === null || outputQueryParsed === undefined) {
+            throw new Error("Failed to parse output query.");
+        }
 
         if (!this.extractedQueries) {
             throw new Error("No extracted queries found for aggregation.");
@@ -159,6 +184,7 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
             throw new Error("Invalid output query parameters: slide and width must be greater than zero. Cannot proceed with approximation approach.");
         }
 
+        // Create MQTT client for communication with the broker with different MQTT client IDs.
         const rsp_client = mqtt.connect(CONFIG.mqttBroker, {
             clientId: 'approximation-operator-' + Math.random().toString(16).substr(2, 8),
             clean: true,
@@ -184,9 +210,10 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
         const that = this;
 
         rsp_client.on('connect', () => {
-            console.log("MQTT Client Connected for Approximation Operator");
+            // Successfully connected to the MQTT broker
             this.logger.log("MQTT Client Connected for Approximation Operator");
 
+            // Subscribe to relevant topics
             const topics = Array.from(this.queryMQTTTopicMap.values());
             if (topics.length === 0) {
                 console.log("No topics to subscribe to for the values.");
@@ -194,13 +221,14 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
             }
 
             const r2sTopics = topics.map((item: any) => typeof item === 'object' && item !== null ? item.r2s_topic : item);
+
+            // Error handling if the R2S topics are invalid
             if (r2sTopics.length === 0) {
                 console.log("No valid r2s topics found for the values.");
                 return;
             }
-            
-            console.log(`About to subscribe to ${r2sTopics.length} topics:`, r2sTopics);
-            this.logger.log(`About to subscribe to ${r2sTopics.length} topics: ${JSON.stringify(r2sTopics)}`);
+
+            // Subscribing to the different subQueries for the R2S result values to approximate for the output query.
 
             for (const mqttTopic of r2sTopics) {
                 rsp_client.subscribe(mqttTopic, (err: any) => {
@@ -221,27 +249,22 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
             let lastTriggerTime = Date.now();
 
             rsp_client.on("message", (topic: string, message: any) => {
-                console.log(`[DEBUG] Received message on topic ${topic}: ${message.toString().substring(0, 100)}...`);
                 this.logger.log(`Received message on topic ${topic}: ${message.toString()}`);
 
                 try {
                     const data = message.toString();
-                    this.logger.log(`Raw message data: ${data}`);
-                    
                     // Parse the RDF triple to extract the numeric value
                     // Look for patterns like: hasValue> "number"^^<type>
                     const valueMatch = data.match(/saref:hasValue>\s*"([^"]*)"(?:\^\^<[^>]*>)?/);
                     let value: number;
-                    
+
                     if (valueMatch && valueMatch[1]) {
                         value = parseFloat(valueMatch[1]);
-                        this.logger.log(`Extracted value from RDF: ${valueMatch[1]} -> ${value}`);
                     } else {
                         // Fallback: try to parse as direct number
                         value = parseFloat(data);
-                        this.logger.log(`Fallback parse as float: ${data} -> ${value}`);
                     }
-                    
+
                     if (isNaN(value)) {
                         this.logger.log(`Failed to parse numeric value from: ${data}`);
                         return;
@@ -296,7 +319,7 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                         allTopicBufferSizes[topicKey] = buffer.length;
                     });
                     this.logger.log(`All topic buffer sizes after message: ${JSON.stringify(allTopicBufferSizes)}`);
-                    
+
                     // Log all global latest values
                     const globalLatestValuesObj: Record<string, any> = {};
                     globalLatestValues.forEach((valData, topicKey) => {
@@ -306,7 +329,7 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
 
                     if (Date.now() - lastTriggerTime >= outputQuerySlide) {
                         const windowStartGlobal = now - outputQueryWidth;
-                        
+
                         // Check how many topics have valid data in the current window BEFORE cleanup
                         let topicsWithValidData = 0;
                         windowBuffers.forEach((buffer, topicKey) => {
@@ -315,59 +338,55 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                                 topicsWithValidData++;
                             }
                         });
-                        
+
                         // More flexible waiting strategy - wait a bit longer for all topics
                         const bufferTimeMs = 3000; // 3 second buffer to allow for timing differences
-                        const shouldWaitForMoreTopics = (topicsWithValidData < r2sTopics.length) && 
-                                                       (Date.now() - lastTriggerTime < outputQuerySlide + bufferTimeMs);
-                        
+                        const shouldWaitForMoreTopics = (topicsWithValidData < r2sTopics.length) &&
+                            (Date.now() - lastTriggerTime < outputQuerySlide + bufferTimeMs);
+
                         if (shouldWaitForMoreTopics) {
                             this.logger.log(`Waiting for more topics. Topics with valid data: ${topicsWithValidData}, Expected: ${r2sTopics.length}, Time since trigger: ${Date.now() - lastTriggerTime}ms`);
                             return; // Wait a bit more for other topics
                         }
-                        
+
                         this.logger.log(`Triggering aggregation for window [${windowStartGlobal}, ${now}]`);
-                        
+
                         // Log buffer sizes before cleanup for each topic
                         const topicBufferSizes: Record<string, number> = {};
                         windowBuffers.forEach((buffer, topicKey) => {
                             topicBufferSizes[topicKey] = buffer.length;
                         });
                         this.logger.log(`Current window buffer sizes before cleanup: ${JSON.stringify(topicBufferSizes)}`);
-                        
+
                         // Clean up old windows for each topic buffer and collect latest values
                         const aggregationResults: Record<string, number | string> = {};
                         const latestValues: Record<string, number> = {}; // Keep track of latest values from each topic
                         let totalValidBuffers = 0;
-                        
+
                         windowBuffers.forEach((buffer, topicKey) => {
                             // Clean up old entries for this topic
                             while (buffer.length && buffer[0].end < windowStartGlobal) {
                                 buffer.shift();
                             }
-                            
+
                             this.logger.log(`Topic ${topicKey} buffer size after cleanup: ${buffer.length}`);
                             this.logger.log(`Topic ${topicKey} buffer contents after cleanup: ${JSON.stringify(buffer)}`);
-                            
+
                             if (buffer.length > 0) {
                                 totalValidBuffers++;
                                 // Calculate aggregation for this specific topic
                                 const target = { start: windowStartGlobal, end: now };
                                 const aggregation = buffer[buffer.length - 1].agg;
-                                
-                                this.logger.log(`DEBUG: About to call mergeMultipleSlidingWindowResults for topic ${topicKey}`);
-                                this.logger.log(`DEBUG: Buffer for ${topicKey}: ${JSON.stringify(buffer)}`);
-                                this.logger.log(`DEBUG: Target window: ${JSON.stringify(target)}`);
-                                this.logger.log(`DEBUG: Aggregation type: ${aggregation}`);
-                                
+
+
                                 const topicResult = mergeMultipleSlidingWindowResults(buffer, target, aggregation);
                                 aggregationResults[topicKey] = topicResult;
-                                
+
                                 // Store the latest value for cross-sensor averaging
                                 if (typeof topicResult === 'number') {
                                     latestValues[topicKey] = topicResult;
                                 }
-                                
+
                                 this.logger.log(`Aggregation result for topic ${topicKey}: ${topicResult}`);
                             } else {
                                 // If no current window data, try to use the most recent value from this topic
@@ -381,7 +400,7 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                                 }
                             }
                         });
-                        
+
                         // Also check if we have any recent data for expected topics that might not be in windowBuffers yet
                         r2sTopics.forEach(expectedTopic => {
                             if (!latestValues[expectedTopic] && windowBuffers.has(expectedTopic)) {
@@ -393,54 +412,49 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                                 }
                             }
                         });
-                        
+
                         lastTriggerTime = Date.now();
-                        
-                        // Log detailed information about the aggregation decision
-                        this.logger.log(`Aggregation decision: totalValidBuffers=${totalValidBuffers}, r2sTopics.length=${r2sTopics.length}, r2sTopics=${JSON.stringify(r2sTopics)}`);
-                        this.logger.log(`Current aggregation results: ${JSON.stringify(aggregationResults)}`);
-                        this.logger.log(`Latest values from all topics: ${JSON.stringify(latestValues)}`);
-                        
+
                         // Publish results if we have at least one valid buffer or latest values from multiple topics
                         const hasMultipleTopicData = Object.keys(latestValues).length >= 2;
                         const hasAnyValidData = totalValidBuffers > 0 || Object.keys(latestValues).length > 0;
-                        
+
                         if (hasAnyValidData) {
-                        // Calculate unified cross-sensor average using latest values from all available topics
-                        // First priority: use the latest global values from all topics that have ever sent data
-                        const allAvailableValuesFromGlobal: number[] = [];
-                        const allTopicsWithData: string[] = [];
-                        
-                        globalLatestValues.forEach((valData, topicKey) => {
-                            allAvailableValuesFromGlobal.push(valData.value);
-                            allTopicsWithData.push(topicKey);
-                        });
-                        
-                        // If we don't have global data, fallback to latestValues from windowing
-                        const allAvailableValues = allAvailableValuesFromGlobal.length >= 2 ? 
-                            allAvailableValuesFromGlobal : Object.values(latestValues);
-                            
-                        const topicsUsedForAverage = allAvailableValuesFromGlobal.length >= 2 ?
-                            allTopicsWithData : Object.keys(latestValues);
-                        
-                        const unifiedAverage = allAvailableValues.length > 0 ? 
-                            allAvailableValues.reduce((sum, val) => sum + val, 0) / allAvailableValues.length : 0;
-                        
-                        this.logger.log(`Computing unified cross-sensor average using ${allAvailableValuesFromGlobal.length >= 2 ? 'global' : 'windowed'} values: ${JSON.stringify(allAvailableValues)} from topics: ${JSON.stringify(topicsUsedForAverage)} -> ${unifiedAverage}`);                            // Prepare individual topics results - prefer aggregation results, fallback to latest values, then global values
+                            // Calculate unified cross-sensor average using latest values from all available topics
+                            // First priority: use the latest global values from all topics that have ever sent data
+                            const allAvailableValuesFromGlobal: number[] = [];
+                            const allTopicsWithData: string[] = [];
+
+                            globalLatestValues.forEach((valData, topicKey) => {
+                                allAvailableValuesFromGlobal.push(valData.value);
+                                allTopicsWithData.push(topicKey);
+                            });
+
+                            // If we don't have global data, fallback to latestValues from windowing
+                            const allAvailableValues = allAvailableValuesFromGlobal.length >= 2 ?
+                                allAvailableValuesFromGlobal : Object.values(latestValues);
+
+                            const topicsUsedForAverage = allAvailableValuesFromGlobal.length >= 2 ?
+                                allTopicsWithData : Object.keys(latestValues);
+
+                            const unifiedAverage = allAvailableValues.length > 0 ?
+                                allAvailableValues.reduce((sum, val) => sum + val, 0) / allAvailableValues.length : 0;
+
+                            this.logger.log(`Computing unified cross-sensor average using ${allAvailableValuesFromGlobal.length >= 2 ? 'global' : 'windowed'} values: ${JSON.stringify(allAvailableValues)} from topics: ${JSON.stringify(topicsUsedForAverage)} -> ${unifiedAverage}`);                            // Prepare individual topics results - prefer aggregation results, fallback to latest values, then global values
                             const individualTopicsResults: Record<string, number | string> = { ...aggregationResults };
                             Object.keys(latestValues).forEach(topic => {
                                 if (!individualTopicsResults[topic]) {
                                     individualTopicsResults[topic] = latestValues[topic];
                                 }
                             });
-                            
+
                             // Also add global values if they're not already included
                             globalLatestValues.forEach((valData, topic) => {
                                 if (!individualTopicsResults[topic]) {
                                     individualTopicsResults[topic] = valData.value;
                                 }
                             });
-                            
+
                             // Publish unified result similar to other approaches
                             const finalResult = {
                                 timestamp: now,
@@ -553,7 +567,7 @@ export function mergeMultipleSlidingWindowResults(
     // Filter windows that overlap target
     const overlapping = windows.filter(w => w.end > target.start && w.start < target.end);
     console.log(`DEBUG: Found ${overlapping.length} overlapping windows:`, JSON.stringify(overlapping));
-    
+
     if (overlapping.length === 0) return 0;
 
     // MIN/MAX aggregation - straightforward from overlapping window values
@@ -579,9 +593,9 @@ export function mergeMultipleSlidingWindowResults(
             const overlapStart = Math.max(w.start, target.start);
             const overlapEnd = Math.min(w.end, target.end);
             const overlapDuration = overlapEnd - overlapStart;
-            
+
             console.log(`DEBUG: Window ${idx}: value=${w.value}, overlapDuration=${overlapDuration}`);
-            
+
             if (overlapDuration > 0) {
                 // For averages, weight by overlap duration
                 const contribution = w.value * overlapDuration;
