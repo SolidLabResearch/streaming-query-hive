@@ -5,15 +5,15 @@ const path = require('path');
 console.log('Script starting...');
 
 const RUNS_PER_PATTERN = 1;
-const LOGS_DIR = 'logs/approximation-patterns';
-const APPROACH_CMD = ['node', ['dist/approaches/StreamingQueryApproximationApproachOrchestrator.js']];
+const LOGS_DIR = 'logs/fetching-client-side-patterns';
+const APPROACH_CMD = ['node', ['dist/approaches/StreamingQueryFetchingClientSideApproachOrchestrator.js']];
 const PUBLISH_CMD = ['node', ['dist/streamer/src/publish.js']];
 const LOG_FILES = [
-  'approximation_approach_log.csv',
-  'approximation_approach_resource_usage.csv',
+  'fetching_client_side_log.csv',
+  'fetching_client_side_resource_usage.csv',
   'replayer-log.csv'
 ];
-const TIMEOUT_MS = 90 * 1000; // Increased to 90 seconds to allow windows to close
+const TIMEOUT_MS = 90 * 1000; // 90 seconds to allow windows to close and compute results
 
 console.log('Loading configuration...');
 const configPath = 'src/streamer/data/approximation_test/experiment_config.json';
@@ -118,7 +118,7 @@ async function testPattern(patternName, dataPath) {
 }
 
 async function main() {
-  console.log('Starting approximation pattern accuracy tests...\n');
+  console.log('Starting fetching client side pattern accuracy tests...\n');
 
   // Test challenging patterns (expected to have lower accuracy with approximation)
   
@@ -135,9 +135,9 @@ async function main() {
     console.log('Waiting 3 seconds before next pattern...');
     await new Promise(res => setTimeout(res, 3000));
   }
-
+  
   console.log(`Results saved in: ${LOGS_DIR}`);
-  console.log('\nTo analyze results, check the CSV files in each iteration folder.');
+  console.log('\\nTo analyze results, check the CSV files in each iteration folder.');
 }
 
 main().catch(console.error);
