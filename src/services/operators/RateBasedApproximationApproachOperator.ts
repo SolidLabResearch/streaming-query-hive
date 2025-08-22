@@ -249,7 +249,7 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
             let lastTriggerTime = Date.now();
 
             rsp_client.on("message", (topic: string, message: any) => {
-                this.logger.log(`Received message on topic ${topic}: ${message.toString()}`);
+                // this.logger.log(`Received message on topic ${topic}: ${message.toString()}`);
 
                 try {
                     const data = message.toString();
@@ -291,7 +291,7 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                         agg: params.aggregation as 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX'
                     };
 
-                    this.logger.log(`Pushed window result to buffer: ${JSON.stringify(result)}`);
+                    // this.logger.log(`Pushed window result to buffer: ${JSON.stringify(result)}`);
                     if (!result.value && result.value !== 0) {
                         this.logger.log(`Received null or undefined value for topic ${topic}. Skipping.`);
                         // Still add to buffer for this topic
@@ -325,7 +325,7 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                     globalLatestValues.forEach((valData, topicKey) => {
                         globalLatestValuesObj[topicKey] = { value: valData.value, timestamp: valData.timestamp };
                     });
-                    this.logger.log(`Global latest values: ${JSON.stringify(globalLatestValuesObj)}`);
+                    // this.logger.log(`Global latest values: ${JSON.stringify(globalLatestValuesObj)}`);
 
                     if (Date.now() - lastTriggerTime >= outputQuerySlide) {
                         const windowStartGlobal = now - outputQueryWidth;

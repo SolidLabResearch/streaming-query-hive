@@ -13,7 +13,7 @@ const LOG_FILES = [
   'approximation_approach_resource_usage.csv',
   'replayer-log.csv'
 ];
-const TIMEOUT_MS = 90 * 1000; // Increased to 90 seconds to allow windows to close
+const TIMEOUT_MS = 150 * 1000; // Increased to 150 seconds to allow full 120s data stream + processing
 
 console.log('Loading configuration...');
 const configPath = 'src/streamer/data/approximation_test/experiment_config.json';
