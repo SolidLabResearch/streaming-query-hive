@@ -1,0 +1,30 @@
+{
+  "data_points": 480,
+  "timestamp_interval_ms": 250,
+  "rates": [
+    0.001,
+    0.01,
+    0.1,
+    1,
+    10,
+    100
+  ],
+  "patterns": [
+    "exponential_growth",
+    "exponential_decay"
+  ],
+  "data_paths": {
+    "exponential_growth_rate_0.001": "rate_comparison/exponential_growth_rate_0.001",
+    "exponential_decay_rate_0.001": "rate_comparison/exponential_decay_rate_0.001",
+    "exponential_growth_rate_0.01": "rate_comparison/exponential_growth_rate_0.01",
+    "exponential_decay_rate_0.01": "rate_comparison/exponential_decay_rate_0.01",
+    "exponential_growth_rate_0.1": "rate_comparison/exponential_growth_rate_0.1",
+    "exponential_decay_rate_0.1": "rate_comparison/exponential_decay_rate_0.1",
+    "exponential_growth_rate_1": "rate_comparison/exponential_growth_rate_1",
+    "exponential_decay_rate_1": "rate_comparison/exponential_decay_rate_1",
+    "exponential_growth_rate_10": "rate_comparison/exponential_growth_rate_10",
+    "exponential_decay_rate_10": "rate_comparison/exponential_decay_rate_10",
+    "exponential_growth_rate_100": "rate_comparison/exponential_growth_rate_100",
+    "exponential_decay_rate_100": "rate_comparison/exponential_decay_rate_100"
+  }
+}

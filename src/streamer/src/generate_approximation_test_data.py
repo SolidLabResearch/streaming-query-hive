@@ -16,13 +16,15 @@ class ApproximationTestDataGenerator:
     
     def __init__(self, base_output_path: str = "/Users/kushbisen/Code/streaming-query-hive/src/streamer/data/approximation_test"):
         self.base_output_path = Path(base_output_path)
-        self.data_points = 10000  # Number of data points per dataset
-        self.timestamp_interval_ms = 33
+        self.data_points = 480  # Number of data points per dataset
+        self.timestamp_interval_ms = 250
 
         # Test scenarios
         self.challenging_patterns = {
             'exponential_growth': self.generate_exponential_growth,
             'exponential_decay': self.generate_exponential_decay,
+            'extreme_exponential_growth': self.generate_extreme_exponential_growth,
+            'extreme_exponential_decay': self.generate_extreme_exponential_decay,
             'logarithmic': self.generate_logarithmic,
             'sine_wave': self.generate_sine_wave,
             'high_frequency_oscillation': self.generate_high_frequency_oscillation,
@@ -49,14 +51,24 @@ class ApproximationTestDataGenerator:
     
     # Challenging patterns for approximation
     def generate_exponential_growth(self) -> List[float]:
-        """Exponential growth: y = e^(x/1000)"""
-        x = np.linspace(0, 10, self.data_points)
-        return np.exp(x / 1000).tolist()
+        """Exponential growth: y = e^(x/100) - rapid growth to challenge approximation"""
+        x = np.linspace(0, 5, self.data_points)  # Reduce range but increase growth rate
+        return np.exp(x / 100).tolist()  # Much faster growth (divide by 100 instead of 1000)
     
     def generate_exponential_decay(self) -> List[float]:
-        """Exponential decay: y = 100 * e^(-x/1000)"""
-        x = np.linspace(0, 10, self.data_points)
-        return (100 * np.exp(-x / 1000)).tolist()
+        """Exponential decay: y = 1000 * e^(-x/50) - rapid decay to challenge approximation"""
+        x = np.linspace(0, 8, self.data_points)  # Increase range for more dramatic decay
+        return (1000 * np.exp(-x / 50)).tolist()  # Much faster decay and higher starting value
+    
+    def generate_extreme_exponential_growth(self) -> List[float]:
+        """Extreme exponential growth: y = e^(x/20) - very rapid growth within 2-minute windows"""
+        x = np.linspace(0, 4, self.data_points)
+        return np.exp(x / 20).tolist()  # Extremely fast growth to break plateau effect
+    
+    def generate_extreme_exponential_decay(self) -> List[float]:
+        """Extreme exponential decay: y = 10000 * e^(-x/10) - very rapid decay within 2-minute windows"""
+        x = np.linspace(0, 6, self.data_points)
+        return (10000 * np.exp(-x / 10)).tolist()  # Extremely fast decay to break plateau effect
     
     def generate_logarithmic(self) -> List[float]:
         """Logarithmic pattern: y = log(x+1) * 10"""

@@ -2,6 +2,8 @@
   "challenging_patterns": [
     "exponential_growth",
     "exponential_decay",
+    "extreme_exponential_growth",
+    "extreme_exponential_decay",
     "logarithmic",
     "sine_wave",
     "high_frequency_oscillation",
@@ -22,6 +24,8 @@
   "data_paths": {
     "challenging_exponential_growth": "approximation_test/challenging/exponential_growth",
     "challenging_exponential_decay": "approximation_test/challenging/exponential_decay",
+    "challenging_extreme_exponential_growth": "approximation_test/challenging/extreme_exponential_growth",
+    "challenging_extreme_exponential_decay": "approximation_test/challenging/extreme_exponential_decay",
     "challenging_logarithmic": "approximation_test/challenging/logarithmic",
     "challenging_sine_wave": "approximation_test/challenging/sine_wave",
     "challenging_high_frequency_oscillation": "approximation_test/challenging/high_frequency_oscillation",
