@@ -4,6 +4,21 @@ import { RSPQLParser } from "rsp-js";
 import { ExtractedQuery, QueryMap } from "../../util/Types";
 import { CSVLogger } from "../../util/logger/CSVLogger";
 import mqtt from "mqtt";
+
+/**
+ * Configuration interface for inactivity detection
+ */
+interface InactivityConfig {
+    /** Minimum samples to calculate average interval */
+    minSamplesForInterval?: number;
+    /** Multiplier for average interval to determine timeout (adaptive) */
+    inactivityMultiplier?: number;
+    /** Fallback timeout for when we can't calculate interval (ms) */
+    fallbackTimeoutMs?: number;
+    /** Maximum timeout to prevent infinite waiting (ms) */
+    maxTimeoutMs?: number;
+}
+
 /**
  *
  */
@@ -15,12 +30,21 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
     private queryFetchLocation: string = CONFIG.queryFetchLocation;
     private extractedQueries: ExtractedQuery[] = [];
     private parser: RSPQLParser = new RSPQLParser();
+    private inactivityConfig: InactivityConfig;
 
     /**
-     * The constructor class currently does not initializes anything.
+     * The constructor class with optional inactivity configuration.
+     * @param inactivityConfig Optional configuration for data inactivity detection
      */
-    constructor() {
-
+    constructor(inactivityConfig?: InactivityConfig) {
+        // Set default configuration with optional overrides
+        this.inactivityConfig = {
+            minSamplesForInterval: 3,       // Reduced from 10 - need faster detection
+            inactivityMultiplier: 0.5,      // Much more aggressive - 0.5x average instead of 5x
+            fallbackTimeoutMs: 5000,        // Reduced from 10s to 5s
+            maxTimeoutMs: 15000,            // Reduced from 3min to 15s - much more aggressive
+            ...inactivityConfig
+        };
     }
 
 
@@ -166,6 +190,11 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
         const outputQueryParsed = this.parser.parse(this.outputQuery);
         const outputQueryWidth = outputQueryParsed.s2r[0].width;
         const outputQuerySlide = outputQueryParsed.s2r[0].slide;
+        
+        // Extract aggregation type from output query
+        const outputAggregationMatch = this.outputQuery.match(/SELECT\s*\((\w+)\(/i);
+        const outputAggregationType = outputAggregationMatch ? outputAggregationMatch[1].toUpperCase() : "AVG";
+        this.logger.log(`Output query aggregation type detected: ${outputAggregationType}`);
 
         if (outputQueryParsed === null || outputQueryParsed === undefined) {
             throw new Error("Failed to parse output query.");
@@ -247,6 +276,12 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
             const globalLatestValues: Map<string, { value: number, timestamp: number }> = new Map();
 
             let lastTriggerTime = Date.now();
+            let lastDataReceivedTime = Date.now(); // Track when we last received any data
+            let dataReceiveCount = 0; // Count data messages received
+            let averageDataInterval = 0; // Average time between data messages
+            let previousDataTime = Date.now();
+            let streamStartTime = Date.now(); // Track when the stream started
+            const MAX_STREAM_DURATION = 150000; // Maximum 150 seconds (2.5 minutes) total runtime
 
             rsp_client.on("message", (topic: string, message: any) => {
                 // this.logger.log(`Received message on topic ${topic}: ${message.toString()}`);
@@ -271,6 +306,25 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                     }
 
                     const now = Date.now();
+                    lastDataReceivedTime = now; // Update last data received time
+                    
+                    // Calculate adaptive data interval for inactivity detection
+                    if (dataReceiveCount > 0) {
+                        const currentInterval = now - previousDataTime;
+                        if (dataReceiveCount === 1) {
+                            averageDataInterval = currentInterval;
+                        } else {
+                            // Running average of data intervals
+                            averageDataInterval = (averageDataInterval * (dataReceiveCount - 1) + currentInterval) / dataReceiveCount;
+                        }
+                        
+                        // Log interval calculation progress every 10 messages
+                        if (dataReceiveCount % 10 === 0) {
+                            this.logger.log(`Data interval stats: count=${dataReceiveCount}, avgInterval=${averageDataInterval.toFixed(2)}ms, currentInterval=${currentInterval}ms`);
+                        }
+                    }
+                    dataReceiveCount++;
+                    previousDataTime = now;
 
                     const params = window_parameters[topic];
 
@@ -328,6 +382,36 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                     // this.logger.log(`Global latest values: ${JSON.stringify(globalLatestValuesObj)}`);
 
                     if (Date.now() - lastTriggerTime >= outputQuerySlide) {
+                        // Check maximum stream duration first
+                        const totalStreamDuration = Date.now() - streamStartTime;
+                        if (totalStreamDuration > MAX_STREAM_DURATION) {
+                            this.logger.log(`Stopping aggregation due to maximum stream duration reached: ${totalStreamDuration}ms (max: ${MAX_STREAM_DURATION}ms)`);
+                            return; // Stop after maximum duration regardless of data activity
+                        }
+
+                        // Calculate adaptive timeout based on data frequency
+                        let adaptiveTimeout: number;
+                        
+                        if (dataReceiveCount >= this.inactivityConfig.minSamplesForInterval! && averageDataInterval > 0) {
+                            // Use adaptive timeout based on actual data frequency
+                            adaptiveTimeout = Math.min(
+                                averageDataInterval * this.inactivityConfig.inactivityMultiplier!,
+                                this.inactivityConfig.maxTimeoutMs!
+                            );
+                            this.logger.log(`Using adaptive timeout: ${adaptiveTimeout}ms (avg interval: ${averageDataInterval}ms, multiplier: ${this.inactivityConfig.inactivityMultiplier})`);
+                        } else {
+                            // Use fallback timeout when we don't have enough samples
+                            adaptiveTimeout = this.inactivityConfig.fallbackTimeoutMs!;
+                            this.logger.log(`Using fallback timeout: ${adaptiveTimeout}ms (insufficient samples: ${dataReceiveCount})`);
+                        }
+                        
+                        // Check if we haven't received data for too long (data stream ended)
+                        const timeSinceLastData = Date.now() - lastDataReceivedTime;
+                        if (timeSinceLastData > adaptiveTimeout) {
+                            this.logger.log(`Stopping aggregation due to data inactivity. Time since last data: ${timeSinceLastData}ms (adaptive timeout: ${adaptiveTimeout}ms)`);
+                            return; // Stop triggering when no data received for extended period
+                        }
+
                         const windowStartGlobal = now - outputQueryWidth;
 
                         // Check how many topics have valid data in the current window BEFORE cleanup
@@ -437,10 +521,29 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                             const topicsUsedForAverage = allAvailableValuesFromGlobal.length >= 2 ?
                                 allTopicsWithData : Object.keys(latestValues);
 
-                            const unifiedAverage = allAvailableValues.length > 0 ?
-                                allAvailableValues.reduce((sum, val) => sum + val, 0) / allAvailableValues.length : 0;
+                            // Calculate unified result based on output query aggregation type
+                            let unifiedResult: number;
+                            switch (outputAggregationType) {
+                                case 'MAX':
+                                    unifiedResult = allAvailableValues.length > 0 ? Math.max(...allAvailableValues) : 0;
+                                    break;
+                                case 'MIN':
+                                    unifiedResult = allAvailableValues.length > 0 ? Math.min(...allAvailableValues) : 0;
+                                    break;
+                                case 'SUM':
+                                    unifiedResult = allAvailableValues.length > 0 ? allAvailableValues.reduce((sum, val) => sum + val, 0) : 0;
+                                    break;
+                                case 'COUNT':
+                                    unifiedResult = allAvailableValues.length; // Count of available sensors
+                                    break;
+                                case 'AVG':
+                                default:
+                                    unifiedResult = allAvailableValues.length > 0 ?
+                                        allAvailableValues.reduce((sum, val) => sum + val, 0) / allAvailableValues.length : 0;
+                                    break;
+                            }
 
-                            this.logger.log(`Computing unified cross-sensor average using ${allAvailableValuesFromGlobal.length >= 2 ? 'global' : 'windowed'} values: ${JSON.stringify(allAvailableValues)} from topics: ${JSON.stringify(topicsUsedForAverage)} -> ${unifiedAverage}`);                            // Prepare individual topics results - prefer aggregation results, fallback to latest values, then global values
+                            this.logger.log(`Computing unified cross-sensor ${outputAggregationType.toLowerCase()} using ${allAvailableValuesFromGlobal.length >= 2 ? 'global' : 'windowed'} values: ${JSON.stringify(allAvailableValues)} from topics: ${JSON.stringify(topicsUsedForAverage)} -> ${unifiedResult}`);                            // Prepare individual topics results - prefer aggregation results, fallback to latest values, then global values
                             const individualTopicsResults: Record<string, number | string> = { ...aggregationResults };
                             Object.keys(latestValues).forEach(topic => {
                                 if (!individualTopicsResults[topic]) {
@@ -459,7 +562,9 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                             const finalResult = {
                                 timestamp: now,
                                 window: { start: windowStartGlobal, end: now },
-                                unifiedAverage: unifiedAverage,
+                                unifiedResult: unifiedResult,
+                                unifiedAverage: outputAggregationType === 'AVG' ? unifiedResult : undefined, // Keep for backward compatibility
+                                aggregationType: outputAggregationType,
                                 individualTopics: individualTopicsResults,
                                 metadata: {
                                     validBuffers: totalValidBuffers,
@@ -484,8 +589,8 @@ export class ApproximationApproachOperator implements IStreamQueryOperator {
                                         console.error('Failed to publish aggregated results:', error);
                                         this.logger.log(`Failed to publish aggregated results: ${error}`);
                                     } else {
-                                        console.log(`Successfully published unified cross-sensor average: ${unifiedAverage} (from ${allAvailableValues.length} topics)`);
-                                        this.logger.log(`Successfully published unified cross-sensor average: ${unifiedAverage} (from ${allAvailableValues.length} topics)`);
+                                        console.log(`Successfully published unified cross-sensor ${outputAggregationType.toLowerCase()}: ${unifiedResult} (from ${allAvailableValues.length} topics)`);
+                                        this.logger.log(`Successfully published unified cross-sensor ${outputAggregationType.toLowerCase()}: ${unifiedResult} (from ${allAvailableValues.length} topics)`);
                                     }
                                 });
                             } else {

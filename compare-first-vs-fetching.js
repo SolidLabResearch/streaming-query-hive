@@ -4,7 +4,18 @@ const path = require('path');
 function extractFirstApproximationResult(logContent) {
     const lines = logContent.split('\n');
     
-    // Look for the first "Successfully published unified cross-sensor average" line
+    // Look for the first "Final aggregation results" line containing unifiedAverage
+    for (const line of lines) {
+        if (line.includes('Final aggregation results')) {
+            // Handle escaped JSON in CSV - look for \"unifiedAverage\":
+            const match = line.match(/\\"unifiedAverage\\":([\d.]+)/);
+            if (match) {
+                return parseFloat(match[1]);
+            }
+        }
+    }
+    
+    // Fallback: look for "Successfully published unified cross-sensor average" line
     for (const line of lines) {
         if (line.includes('Successfully published unified cross-sensor average:')) {
             const match = line.match(/Successfully published unified cross-sensor average:\s*([\d.]+)/);
@@ -14,6 +25,24 @@ function extractFirstApproximationResult(logContent) {
         }
     }
     return null;
+}
+
+function extractAllApproximationResults(logContent) {
+    const lines = logContent.split('\n');
+    const results = [];
+    
+    for (const line of lines) {
+        // Look for lines containing "Final aggregation results" which contain unifiedAverage
+        if (line.includes('Final aggregation results')) {
+            // Handle escaped JSON in CSV - look for \"unifiedAverage\":
+            const match = line.match(/\\"unifiedAverage\\":([\d.]+)/);
+            if (match) {
+                results.push(parseFloat(match[1]));
+            }
+        }
+    }
+    
+    return results;
 }
 
 function extractFetchingResult(logContent) {
@@ -60,11 +89,13 @@ console.log();
 for (const pattern of patterns) {
     // Extract first approximation result from iteration1
     let firstApproxResult = null;
+    let allApproxResults = [];
     const approxPath = `logs/approximation-patterns/${pattern}/iteration1/approximation_approach_log.csv`;
     
     if (fs.existsSync(approxPath)) {
         const logContent = fs.readFileSync(approxPath, 'utf8');
         firstApproxResult = extractFirstApproximationResult(logContent);
+        allApproxResults = extractAllApproximationResults(logContent);
     }
     
     // Extract fetching client side result from iteration1
@@ -85,7 +116,9 @@ for (const pattern of patterns) {
             type: patternType,
             firstApprox: firstApproxResult,
             fetching: fetchingResult,
-            diff: diff
+            diff: diff,
+            approxResultCount: allApproxResults.length,
+            allApproxResults: allApproxResults
         });
     } else {
         const patternType = pattern.startsWith('challenging') ? 'Challenging' : 'Favorable';
@@ -94,28 +127,52 @@ for (const pattern of patterns) {
             type: patternType,
             firstApprox: firstApproxResult,
             fetching: fetchingResult,
-            diff: null
+            diff: null,
+            approxResultCount: allApproxResults.length,
+            allApproxResults: allApproxResults
         });
     }
 }
 
 // Generate detailed table
-console.log('┌─' + '─'.repeat(35) + '┬─' + '─'.repeat(15) + '┬─' + '─'.repeat(15) + '┬─' + '─'.repeat(12) + '┬─' + '─'.repeat(12) + '┐');
-console.log('│ Pattern                            │ First Approx    │ Fetching Client │ Accuracy     │ Pattern Type │');
-console.log('│                                    │ Result          │ Result          │ Diff (%)     │              │');
-console.log('├─' + '─'.repeat(35) + '┼─' + '─'.repeat(15) + '┼─' + '─'.repeat(15) + '┼─' + '─'.repeat(12) + '┼─' + '─'.repeat(12) + '┤');
+console.log('┌─' + '─'.repeat(35) + '┬─' + '─'.repeat(15) + '┬─' + '─'.repeat(15) + '┬─' + '─'.repeat(12) + '┬─' + '─'.repeat(8) + '┬─' + '─'.repeat(12) + '┐');
+console.log('│ Pattern                            │ First Approx    │ Fetching Client │ Accuracy     │ Results  │ Pattern Type │');
+console.log('│                                    │ unifiedAverage  │ Result          │ Diff (%)     │ Count    │              │');
+console.log('├─' + '─'.repeat(35) + '┼─' + '─'.repeat(15) + '┼─' + '─'.repeat(15) + '┼─' + '─'.repeat(12) + '┼─' + '─'.repeat(8) + '┼─' + '─'.repeat(12) + '┤');
 
 results.forEach(result => {
     const pattern = result.pattern.replace('_', ' ').substring(0, 33).padEnd(34);
     const approx = result.firstApprox ? result.firstApprox.toFixed(4).padEnd(15) : 'N/A'.padEnd(15);
     const fetching = result.fetching ? result.fetching.toFixed(4).padEnd(15) : 'N/A'.padEnd(15);
     const diff = result.diff !== null ? `${result.diff.toFixed(2)}%`.padEnd(12) : 'N/A'.padEnd(12);
+    const count = result.approxResultCount.toString().padEnd(8);
     const type = result.type.padEnd(12);
     
-    console.log(`│ ${pattern} │ ${approx} │ ${fetching} │ ${diff} │ ${type} │`);
+    console.log(`│ ${pattern} │ ${approx} │ ${fetching} │ ${diff} │ ${count} │ ${type} │`);
 });
 
-console.log('└─' + '─'.repeat(35) + '┴─' + '─'.repeat(15) + '┴─' + '─'.repeat(15) + '┴─' + '─'.repeat(12) + '┴─' + '─'.repeat(12) + '┘');
+console.log('└─' + '─'.repeat(35) + '┴─' + '─'.repeat(15) + '┴─' + '─'.repeat(15) + '┴─' + '─'.repeat(12) + '┴─' + '─'.repeat(8) + '┴─' + '─'.repeat(12) + '┘');
+
+// Generate CSV format for Google Sheets
+console.log('\n' + '='.repeat(80));
+console.log('                    CSV FORMAT FOR GOOGLE SHEETS');
+console.log('='.repeat(80));
+console.log('Copy the following CSV data and paste it into Google Sheets:\n');
+
+console.log('Pattern,First Approximation unifiedAverage,Fetching Client Side Result,Accuracy Difference (%),Accuracy Percentage (%),Results Count,Pattern Type');
+results.forEach(result => {
+    const pattern = result.pattern.replace('_', ' ');
+    const approx = result.firstApprox ? result.firstApprox.toFixed(4) : 'N/A';
+    const fetching = result.fetching ? result.fetching.toFixed(4) : 'N/A';
+    const diff = result.diff !== null ? result.diff.toFixed(2) : 'N/A';
+    const accuracy = result.diff !== null ? (100 - result.diff).toFixed(2) : 'N/A';
+    const count = result.approxResultCount;
+    const type = result.type;
+    
+    console.log(`${pattern},${approx},${fetching},${diff},${accuracy},${count},${type}`);
+});
+
+console.log('\n' + '='.repeat(80));
 
 // Calculate summary statistics for patterns with complete data
 const validResults = results.filter(r => r.diff !== null);
@@ -215,3 +272,23 @@ const exportData = {
 
 fs.writeFileSync('first-vs-fetching-comparison.json', JSON.stringify(exportData, null, 2));
 console.log('Detailed results exported to first-vs-fetching-comparison.json');
+
+// Export to CSV file for easy import to Google Sheets
+const csvContent = [
+    'Pattern,First Approximation unifiedAverage,Fetching Client Side Result,Accuracy Difference (%),Accuracy Percentage (%),Results Count,Pattern Type'
+];
+
+results.forEach(result => {
+    const pattern = result.pattern.replace('_', ' ');
+    const approx = result.firstApprox ? result.firstApprox.toFixed(4) : 'N/A';
+    const fetching = result.fetching ? result.fetching.toFixed(4) : 'N/A';
+    const diff = result.diff !== null ? result.diff.toFixed(2) : 'N/A';
+    const accuracy = result.diff !== null ? (100 - result.diff).toFixed(2) : 'N/A';
+    const count = result.approxResultCount;
+    const type = result.type;
+    
+    csvContent.push(`${pattern},${approx},${fetching},${diff},${accuracy},${count},${type}`);
+});
+
+fs.writeFileSync('comparison-results.csv', csvContent.join('\n'));
+console.log('CSV results exported to comparison-results.csv for Google Sheets import');
