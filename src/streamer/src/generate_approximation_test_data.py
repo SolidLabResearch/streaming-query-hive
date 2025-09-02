@@ -63,12 +63,12 @@ class ApproximationTestDataGenerator:
     def generate_extreme_exponential_growth(self) -> List[float]:
         """Extreme exponential growth: y = e^(x/20) - very rapid growth within 2-minute windows"""
         x = np.linspace(0, 4, self.data_points)
-        return np.exp(x / 20).tolist()  # Extremely fast growth to break plateau effect
+        return np.exp(x / 20).tolist()  
     
     def generate_extreme_exponential_decay(self) -> List[float]:
         """Extreme exponential decay: y = 10000 * e^(-x/10) - very rapid decay within 2-minute windows"""
         x = np.linspace(0, 6, self.data_points)
-        return (10000 * np.exp(-x / 10)).tolist()  # Extremely fast decay to break plateau effect
+        return (10000 * np.exp(-x / 10)).tolist() 
     
     def generate_logarithmic(self) -> List[float]:
         """Logarithmic pattern: y = log(x+1) * 10"""
