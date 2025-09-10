@@ -27,7 +27,7 @@ df = pd.DataFrame(data)
 
 # Create a comprehensive visualization
 fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-fig.suptitle('🎯 Approximation vs Fetching Client Side: Accuracy Analysis\nComplex Oscillation Frequency Comparison', 
+fig.suptitle('Approximation vs Fetching Client Side: Accuracy Analysis\nComplex Oscillation Frequency Comparison', 
              fontsize=16, fontweight='bold', y=0.95)
 
 # 1. Simple Accuracy vs Frequency
@@ -35,7 +35,7 @@ ax1 = axes[0, 0]
 bars1 = ax1.bar(df['Frequency (Hz)'], df['Simple Accuracy (%)'], 
                 color=['lightgreen', 'lightgreen', 'lightblue', 'orange', 'lightcoral'],
                 alpha=0.8, edgecolor='black', linewidth=1.2)
-ax1.set_title('📊 Simple Accuracy vs Frequency', fontweight='bold')
+ax1.set_title('Simple Accuracy vs Frequency', fontweight='bold')
 ax1.set_xlabel('Frequency (Hz)')
 ax1.set_ylabel('Simple Accuracy (%)')
 ax1.set_ylim(98.5, 100.5)
@@ -59,7 +59,7 @@ scatter = ax2.scatter(df['Nyquist Ratio'], df['MAPE (%)'],
                      c=['green', 'green', 'blue', 'orange', 'red'],
                      s=150, alpha=0.7, edgecolors='black', linewidth=2)
 ax2.plot(df['Nyquist Ratio'], df['MAPE (%)'], 'k--', alpha=0.5, linewidth=1)
-ax2.set_title('📈 MAPE vs Nyquist Ratio', fontweight='bold')
+ax2.set_title('MAPE vs Nyquist Ratio', fontweight='bold')
 ax2.set_xlabel('Nyquist Ratio (Frequency/Nyquist)')
 ax2.set_ylabel('MAPE (%)')
 ax2.grid(True, alpha=0.3)
@@ -118,7 +118,7 @@ bars4a = ax4.bar(x_pos - width/2, accuracy_means, width,
                  color=['lightgreen', 'orange', 'lightcoral'])
 ax4.set_xlabel('Aliasing Risk Category')
 ax4.set_ylabel('Average Simple Accuracy (%)', color='blue')
-ax4.set_title('📊 Performance by Aliasing Risk Category', fontweight='bold')
+ax4.set_title('Performance by Aliasing Risk Category', fontweight='bold')
 ax4.set_xticks(x_pos)
 ax4.set_xticklabels(risk_categories)
 ax4.set_ylim(99, 100.5)
@@ -146,13 +146,13 @@ plt.tight_layout()
 
 # Add overall statistics text box
 textstr = '\n'.join([
-    '📈 OVERALL PERFORMANCE SUMMARY:',
+    'OVERALL PERFORMANCE SUMMARY:',
     f'• Average Simple Accuracy: {df["Simple Accuracy (%)"].mean():.2f}%',
     f'• Average MAPE: {df["MAPE (%)"].mean():.2f}%',
     f'• Average MAE: {df["MAE"].mean():.4f}',
     f'• Best Performance: {df["Frequency (Hz)"][df["Simple Accuracy (%)"].idxmax()]:.1f} Hz ({df["Simple Accuracy (%)"].max():.2f}%)',
     f'• Worst Performance: {df["Frequency (Hz)"][df["Simple Accuracy (%)"].idxmin()]:.1f} Hz ({df["Simple Accuracy (%)"].min():.2f}%)',
-    '• All frequencies achieve >99% accuracy! 🎉'
+    '• All frequencies achieve >99% accuracy! '
 ])
 
 fig.text(0.02, 0.02, textstr, fontsize=10, verticalalignment='bottom',
@@ -161,9 +161,9 @@ fig.text(0.02, 0.02, textstr, fontsize=10, verticalalignment='bottom',
 plt.savefig('accuracy_comparison_analysis.png', dpi=300, bbox_inches='tight')
 plt.show()
 
-print("🎯 ACCURACY VISUALIZATION COMPLETE!")
-print("📊 Graph saved as: accuracy_comparison_analysis.png")
-print("\n📈 KEY INSIGHTS:")
+print("ACCURACY VISUALIZATION COMPLETE!")
+print("Graph saved as: accuracy_comparison_analysis.png")
+print("\nKEY INSIGHTS:")
 print(f"• Approximation approach maintains {df['Simple Accuracy (%)'].min():.2f}% - {df['Simple Accuracy (%)'].max():.2f}% accuracy")
 print(f"• Even at Nyquist limit (2.0 Hz), accuracy remains {df['Simple Accuracy (%)'].iloc[-1]:.2f}%")
 print(f"• MAPE ranges from {df['MAPE (%)'].min():.2f}% to {df['MAPE (%)'].max():.2f}%")

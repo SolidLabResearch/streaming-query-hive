@@ -29,7 +29,7 @@ class FrequencyComparisonFetchingExperiment {
             parseFloat(frequency).toFixed(1) : frequency.toString();
         const datasetName = `${oscillationType}_freq_${formattedFreq}`;
         
-        console.log(`\n🎵 Testing ${oscillationType} at ${frequency} Hz...`);
+        console.log(`\nTesting ${oscillationType} at ${frequency} Hz...`);
         console.log(`   Dataset: ${datasetName}`);
         console.log(`   Nyquist ratio: ${(frequency / 2.0).toFixed(2)}x`);
         
@@ -119,7 +119,7 @@ class FrequencyComparisonFetchingExperiment {
                     }
                     
                     if (code === 0) {
-                        console.log(`✅ Completed ${oscillationType} ${frequency} Hz`);
+                        console.log(`Completed ${oscillationType} ${frequency} Hz`);
                         resolve({ 
                             success: true, 
                             oscillationType, 
@@ -128,7 +128,7 @@ class FrequencyComparisonFetchingExperiment {
                             logPath: testLogDir
                         });
                     } else {
-                        console.error(`❌ Failed ${oscillationType} ${frequency} Hz (exit code: ${code})`);
+                        console.error(`Failed ${oscillationType} ${frequency} Hz (exit code: ${code})`);
                         resolve({ 
                             success: false, 
                             oscillationType, 
@@ -143,7 +143,7 @@ class FrequencyComparisonFetchingExperiment {
                 publisher.on('error', (error) => {
                     clearTimeout(timeout);
                     approach.kill();
-                    console.error(`❌ Publisher error in ${oscillationType} ${frequency} Hz:`, error.message);
+                    console.error(`Publisher error in ${oscillationType} ${frequency} Hz:`, error.message);
                     resolve({ 
                         success: false, 
                         oscillationType, 
@@ -156,7 +156,7 @@ class FrequencyComparisonFetchingExperiment {
             }, 2000); // 2 second delay before starting publisher
 
             approach.on('error', (error) => {
-                console.error(`❌ Approach error in ${oscillationType} ${frequency} Hz:`, error.message);
+                console.error(`Approach error in ${oscillationType} ${frequency} Hz:`, error.message);
                 resolve({ 
                     success: false, 
                     oscillationType, 
@@ -170,7 +170,7 @@ class FrequencyComparisonFetchingExperiment {
     }
 
     async runAllTests() {
-        console.log('🎵 FREQUENCY COMPARISON EXPERIMENT - FETCHING CLIENT SIDE APPROACH');
+        console.log('FREQUENCY COMPARISON EXPERIMENT - FETCHING CLIENT SIDE APPROACH');
         console.log('='.repeat(80));
         console.log(`Testing ${FREQUENCIES.length} frequencies across ${OSCILLATION_TYPES.length} oscillation types`);
         
@@ -210,14 +210,14 @@ class FrequencyComparisonFetchingExperiment {
         const summaryPath = path.join(this.logDir, 'frequency_fetching_summary.json');
         fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
         
-        console.log('\n🎯 FREQUENCY EXPERIMENT SUMMARY:');
+        console.log('\nFREQUENCY EXPERIMENT SUMMARY:');
         console.log(`   Total tests: ${summary.summary.total}`);
         console.log(`   Successful: ${summary.summary.successful}`);
         console.log(`   Failed: ${summary.summary.failed}`);
         console.log(`   Success rate: ${(summary.summary.successful / summary.summary.total * 100).toFixed(1)}%`);
         
         // Show results by frequency
-        console.log('\n📊 RESULTS BY FREQUENCY:');
+        console.log('\nRESULTS BY FREQUENCY:');
         for (const freq of FREQUENCIES) {
             const freqResults = results.filter(r => r.frequency === freq);
             const freqSuccess = freqResults.filter(r => r.success).length;
@@ -225,15 +225,15 @@ class FrequencyComparisonFetchingExperiment {
         }
         
         // Show results by oscillation type
-        console.log('\n📊 RESULTS BY OSCILLATION TYPE:');
+        console.log('\nRESULTS BY OSCILLATION TYPE:');
         for (const type of OSCILLATION_TYPES) {
             const typeResults = results.filter(r => r.oscillationType === type);
             const typeSuccess = typeResults.filter(r => r.success).length;
             console.log(`   ${type}: ${typeSuccess}/${typeResults.length} successful`);
         }
         
-        console.log(`\n💾 Summary saved to: ${summaryPath}`);
-        console.log('🎵 Frequency comparison experiment complete!');
+        console.log(`\nSummary saved to: ${summaryPath}`);
+        console.log('Frequency comparison experiment complete!');
         
         return summary;
     }

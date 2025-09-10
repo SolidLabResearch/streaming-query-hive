@@ -36,7 +36,7 @@ setTimeout(() => {
     if (output.includes('All observations published')) {
       const endTime = Date.now();
       const duration = (endTime - startTime) / 1000;
-      console.log(`\n🎉 Publisher finished! Duration: ${duration.toFixed(1)} seconds`);
+      console.log(`\nPublisher finished! Duration: ${duration.toFixed(1)} seconds`);
       console.log('This should be approximately 2 minutes (120 seconds) for 480 observations at 4Hz');
       publisherFinished = true;
     }
@@ -62,7 +62,7 @@ setTimeout(() => {
     setTimeout(() => {
       try { approach.kill('SIGTERM'); } catch(e) {}
       
-      console.log(`\n📊 Summary:`);
+      console.log(`\nSummary:`);
       console.log(`Total approximation results: ${approximationResults.length}`);
       console.log(`Expected: Consistent results since all patterns now have same duration`);
       console.log(`First result: ${approximationResults[0]?.result || 'N/A'}`);

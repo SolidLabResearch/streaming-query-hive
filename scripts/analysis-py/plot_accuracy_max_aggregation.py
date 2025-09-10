@@ -96,15 +96,15 @@ def plot_accuracy_comparison():
     
     # Print summary
     print("\n" + "="*80)
-    print("📊 ACCURACY COMPARISON SUMMARY (with MAX Aggregation Support)")
+    print("ACCURACY COMPARISON SUMMARY (with MAX Aggregation Support)")
     print("="*80)
-    print(f"📈 Overall Average Accuracy: {overall_avg:.2f}%")
+    print(f"Overall Average Accuracy: {overall_avg:.2f}%")
     print(f"🟢 Favorable Patterns Average: {favorable_avg:.2f}%")
     print(f"🔴 Challenging Patterns Average: {challenging_avg:.2f}%")
     print(f"🏆 Best Performance: {df_sorted.iloc[-1]['Clean_Pattern']} ({df_sorted.iloc[-1]['Accuracy Percentage (%)']:.2f}%)")
-    print(f"⚠️  Worst Performance: {df_sorted.iloc[0]['Clean_Pattern']} ({df_sorted.iloc[0]['Accuracy Percentage (%)']:.2f}%)")
-    print(f"📊 Total Patterns: {len(df)} ({len(df[df['Pattern Type'] == 'Favorable'])} Favorable, {len(df[df['Pattern Type'] == 'Challenging'])} Challenging)")
-    print("\n✅ Plot saved as 'accuracy_comparison_max_aggregation.png'")
+    print(f" Worst Performance: {df_sorted.iloc[0]['Clean_Pattern']} ({df_sorted.iloc[0]['Accuracy Percentage (%)']:.2f}%)")
+    print(f"Total Patterns: {len(df)} ({len(df[df['Pattern Type'] == 'Favorable'])} Favorable, {len(df[df['Pattern Type'] == 'Challenging'])} Challenging)")
+    print("\nPlot saved as 'accuracy_comparison_max_aggregation.png'")
     print("="*80)
 
 if __name__ == "__main__":

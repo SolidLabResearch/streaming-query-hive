@@ -64,7 +64,7 @@ function extractApproximationResults(logDir) {
                         });
                     }
                 } catch (error) {
-                    console.error(`❌ Error reading approximation file: ${error.message}`);
+                    console.error(`Error reading approximation file: ${error.message}`);
                 }
             }
         }
@@ -107,7 +107,7 @@ function extractFetchingResults(logDir) {
                         });
                     }
                 } catch (error) {
-                    console.error(`❌ Error reading fetching file: ${error.message}`);
+                    console.error(`Error reading fetching file: ${error.message}`);
                 }
             }
         }
@@ -127,23 +127,23 @@ function calculateAccuracy(approximationValue, groundTruthValue) {
 }
 
 function main() {
-    console.log('🎯 APPROXIMATION ACCURACY ANALYSIS');
+    console.log('APPROXIMATION ACCURACY ANALYSIS');
     console.log('Ground Truth: Fetching Client Side Approach');
     console.log('='.repeat(80));
     
     const approximationLogDir = './logs/rate-comparison-approximation';
     const fetchingLogDir = './logs/rate-comparison-fetching';
     
-    console.log('\n📊 Extracting Results...');
+    console.log('\nExtracting Results...');
     const approximationResults = extractApproximationResults(approximationLogDir);
     const fetchingResults = extractFetchingResults(fetchingLogDir);
     
-    console.log(`✅ Found ${approximationResults.length} approximation results`);
-    console.log(`✅ Found ${fetchingResults.length} fetching (ground truth) results`);
+    console.log(`Found ${approximationResults.length} approximation results`);
+    console.log(`Found ${fetchingResults.length} fetching (ground truth) results`);
     
     const accuracyAnalysis = [];
     
-    console.log('\n📈 ACCURACY COMPARISON BY PATTERN AND RATE');
+    console.log('\nACCURACY COMPARISON BY PATTERN AND RATE');
     console.log('='.repeat(80));
     
     for (const pattern of PATTERNS) {
@@ -196,7 +196,7 @@ function main() {
     }
     
     // Summary Statistics
-    console.log('\n📊 SUMMARY STATISTICS');
+    console.log('\nSUMMARY STATISTICS');
     console.log('='.repeat(80));
     
     if (accuracyAnalysis.length > 0) {
@@ -204,7 +204,7 @@ function main() {
         const overallAccuracy = accuracyAnalysis.reduce((sum, r) => sum + r.accuracy, 0) / accuracyAnalysis.length;
         const overallError = accuracyAnalysis.reduce((sum, r) => sum + r.errorPercent, 0) / accuracyAnalysis.length;
         
-        console.log(`\n🎯 OVERALL PERFORMANCE:`);
+        console.log(`\nOVERALL PERFORMANCE:`);
         console.log(`   • Average Accuracy: ${overallAccuracy.toFixed(2)}%`);
         console.log(`   • Average Error: ${overallError.toFixed(2)}%`);
         console.log(`   • Tests Completed: ${accuracyAnalysis.length}/${RATES.length * PATTERNS.length}`);
@@ -218,7 +218,7 @@ function main() {
                 const bestAccuracy = Math.max(...patternResults.map(r => r.accuracy));
                 const worstAccuracy = Math.min(...patternResults.map(r => r.accuracy));
                 
-                console.log(`\n📈 ${pattern.toUpperCase().replace('_', ' ')} PATTERN:`);
+                console.log(`\n${pattern.toUpperCase().replace('_', ' ')} PATTERN:`);
                 console.log(`   • Average Accuracy: ${avgAccuracy.toFixed(2)}%`);
                 console.log(`   • Average Error: ${avgError.toFixed(2)}%`);
                 console.log(`   • Best Accuracy: ${bestAccuracy.toFixed(2)}%`);
@@ -228,7 +228,7 @@ function main() {
         }
         
         // Rate-based analysis
-        console.log(`\n📊 ACCURACY BY RATE:`);
+        console.log(`\nACCURACY BY RATE:`);
         for (const rate of RATES) {
             const rateResults = accuracyAnalysis.filter(r => r.rate === rate);
             if (rateResults.length > 0) {
@@ -253,19 +253,19 @@ function main() {
         const acceptable = accuracyAnalysis.filter(r => r.accuracy >= 80 && r.accuracy < 90).length;
         const poor = accuracyAnalysis.filter(r => r.accuracy < 80).length;
         
-        console.log(`\n📊 ACCURACY DISTRIBUTION:`);
+        console.log(`\nACCURACY DISTRIBUTION:`);
         console.log(`   • Excellent (≥95%): ${excellent} tests`);
         console.log(`   • Good (90-95%): ${good} tests`);
         console.log(`   • Acceptable (80-90%): ${acceptable} tests`);
         console.log(`   • Poor (<80%): ${poor} tests`);
         
     } else {
-        console.log(`\n❌ No comparable results found.`);
+        console.log(`\nNo comparable results found.`);
         console.log(`   Please ensure both approximation and fetching experiments have been completed.`);
     }
     
     // Generate CSV export
-    console.log('\n💾 EXPORTING RESULTS...');
+    console.log('\nEXPORTING RESULTS...');
     
     const csvContent = [
         'Pattern,Rate,Ground Truth (Fetching),Approximation,Accuracy (%),Error (%),Approx Results Count,Fetching Results Count'
@@ -310,8 +310,8 @@ function main() {
     
     fs.writeFileSync('./logs/approximation_accuracy_analysis.json', JSON.stringify(exportData, null, 2));
     
-    console.log(`✅ CSV exported to: ./logs/approximation_accuracy_analysis.csv`);
-    console.log(`✅ JSON exported to: ./logs/approximation_accuracy_analysis.json`);
+    console.log(`CSV exported to: ./logs/approximation_accuracy_analysis.csv`);
+    console.log(`JSON exported to: ./logs/approximation_accuracy_analysis.json`);
     
     console.log('\n' + '='.repeat(80));
     console.log('ANALYSIS COMPLETE');

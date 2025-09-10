@@ -125,7 +125,7 @@ async function runPatternTest(patternName, dataPath, runs = 5) {
       console.log('Starting approximation pattern accuracy tests...');
       
       // Test challenging patterns
-      console.log('\n🔥 TESTING CHALLENGING PATTERNS (Expected: Lower Accuracy) 🔥');
+      console.log('\nTESTING CHALLENGING PATTERNS (Expected: Lower Accuracy) ');
       for (const pattern of experimentConfig.challenging_patterns || []) {
         const patternKey = `challenging_${pattern}`;
         if (experimentConfig.data_paths[patternKey]) {
@@ -134,7 +134,7 @@ async function runPatternTest(patternName, dataPath, runs = 5) {
       }
       
       // Test favorable patterns
-      console.log('\n✅ TESTING FAVORABLE PATTERNS (Expected: Higher Accuracy) ✅');
+      console.log('\nTESTING FAVORABLE PATTERNS (Expected: Higher Accuracy) ');
       for (const pattern of experimentConfig.favorable_patterns || []) {
         const patternKey = `favorable_${pattern}`;
         if (experimentConfig.data_paths[patternKey]) {

@@ -66,15 +66,15 @@ function extractApproximationResults(logDir) {
                             count: values.length
                         });
                         
-                        console.log(`📊 Approximation ${pattern} rate ${rate}: Found ${values.length} results, last = ${values[values.length - 1]}`);
+                        console.log(`Approximation ${pattern} rate ${rate}: Found ${values.length} results, last = ${values[values.length - 1]}`);
                     } else {
-                        console.log(`⚠️  No Final aggregation results or unified cross-sensor results found in ${logFile}`);
+                        console.log(` No Final aggregation results or unified cross-sensor results found in ${logFile}`);
                     }
                 } catch (error) {
-                    console.error(`❌ Error reading ${logFile}:`, error.message);
+                    console.error(`Error reading ${logFile}:`, error.message);
                 }
             } else {
-                console.log(`⚠️  File not found: ${logFile}`);
+                console.log(` File not found: ${logFile}`);
             }
         }
     }
@@ -112,15 +112,15 @@ function extractFetchingResults(logDir) {
                             count: values.length
                         });
                         
-                        console.log(`📊 Fetching ${pattern} rate ${rate}: Found ${values.length} results, last = ${values[values.length - 1]}`);
+                        console.log(`Fetching ${pattern} rate ${rate}: Found ${values.length} results, last = ${values[values.length - 1]}`);
                     } else {
-                        console.log(`⚠️  No published results found in ${logFile}`);
+                        console.log(` No published results found in ${logFile}`);
                     }
                 } catch (error) {
-                    console.error(`❌ Error reading ${logFile}:`, error.message);
+                    console.error(`Error reading ${logFile}:`, error.message);
                 }
             } else {
-                console.log(`⚠️  File not found: ${logFile}`);
+                console.log(` File not found: ${logFile}`);
             }
         }
     }
@@ -143,7 +143,7 @@ function calculateExpectedValue(pattern, rate, timepoint = 120) {
 }
 
 function compareResults(approximationResults, fetchingResults) {
-    console.log('\n📈 ACCURACY COMPARISON ANALYSIS');
+    console.log('\nACCURACY COMPARISON ANALYSIS');
     console.log('='.repeat(80));
     
     const comparison = [];
@@ -157,7 +157,7 @@ function compareResults(approximationResults, fetchingResults) {
             const fetchingResult = fetchingResults.find(r => r.pattern === pattern && r.rate === rate);
             const expectedValue = calculateExpectedValue(pattern, rate);
             
-            console.log(`\n📊 Rate ${rate}:`);
+            console.log(`\nRate ${rate}:`);
             console.log(`   Expected value: ${expectedValue ? expectedValue.toFixed(6) : 'N/A'}`);
             
             if (approxResult) {
@@ -201,13 +201,13 @@ function compareResults(approximationResults, fetchingResults) {
 }
 
 function generateSummary(comparison) {
-    console.log('\n🎯 SUMMARY ANALYSIS');
+    console.log('\nSUMMARY ANALYSIS');
     console.log('='.repeat(80));
     
     const approxWins = comparison.filter(c => c.winner === 'Approximation').length;
     const fetchingWins = comparison.filter(c => c.winner === 'Fetching').length;
     
-    console.log(`\n📊 Overall Accuracy Comparison:`);
+    console.log(`\nOverall Accuracy Comparison:`);
     console.log(`   Approximation wins: ${approxWins}/${comparison.length} tests`);
     console.log(`   Fetching wins: ${fetchingWins}/${comparison.length} tests`);
     
@@ -221,7 +221,7 @@ function generateSummary(comparison) {
         else rateAnalysis[result.rate].fetching++;
     }
     
-    console.log(`\n📈 Rate-based Analysis:`);
+    console.log(`\nRate-based Analysis:`);
     for (const rate of RATES) {
         if (rateAnalysis[rate]) {
             const total = rateAnalysis[rate].approx + rateAnalysis[rate].fetching;
@@ -239,7 +239,7 @@ function generateSummary(comparison) {
         else patternAnalysis[result.pattern].fetching++;
     }
     
-    console.log(`\n🔄 Pattern-based Analysis:`);
+    console.log(`\nPattern-based Analysis:`);
     for (const pattern of PATTERNS) {
         if (patternAnalysis[pattern]) {
             const total = patternAnalysis[pattern].approx + patternAnalysis[pattern].fetching;
@@ -249,19 +249,19 @@ function generateSummary(comparison) {
 }
 
 function main() {
-    console.log('🔍 EXTRACTING RESULTS FROM EXPERIMENTS');
+    console.log('EXTRACTING RESULTS FROM EXPERIMENTS');
     console.log('='.repeat(80));
     
     const approximationLogDir = './logs/rate-comparison-approximation';
     const fetchingLogDir = './logs/rate-comparison-fetching';
     
-    console.log('\n📋 Extracting Approximation Results...');
+    console.log('\nExtracting Approximation Results...');
     const approximationResults = extractApproximationResults(approximationLogDir);
     
-    console.log('\n📋 Extracting Fetching Results...');
+    console.log('\nExtracting Fetching Results...');
     const fetchingResults = extractFetchingResults(fetchingLogDir);
     
-    console.log('\n📊 Running Comparison Analysis...');
+    console.log('\nRunning Comparison Analysis...');
     const comparison = compareResults(approximationResults, fetchingResults);
     
     if (comparison.length > 0) {
@@ -276,9 +276,9 @@ function main() {
         };
         
         fs.writeFileSync('./logs/accuracy_comparison_results.json', JSON.stringify(detailedResults, null, 2));
-        console.log('\n💾 Detailed results saved to: ./logs/accuracy_comparison_results.json');
+        console.log('\nDetailed results saved to: ./logs/accuracy_comparison_results.json');
     } else {
-        console.log('\n❌ No comparable results found. Please ensure both approximation and fetching experiments have been run.');
+        console.log('\nNo comparable results found. Please ensure both approximation and fetching experiments have been run.');
     }
 }
 

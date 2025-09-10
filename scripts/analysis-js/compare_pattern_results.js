@@ -86,12 +86,12 @@ function analyzePatternsComparison() {
   // Check for consistency
   const inconsistentPatterns = results.filter(r => r.approx !== r.fetching);
   if (inconsistentPatterns.length > 0) {
-    console.log(`\n⚠️  Found ${inconsistentPatterns.length} patterns with different result counts:`);
+    console.log(`\n Found ${inconsistentPatterns.length} patterns with different result counts:`);
     inconsistentPatterns.forEach(p => {
       console.log(`   ${p.pattern}: Approximation=${p.approx}, Fetching=${p.fetching} (diff: ${p.diff})`);
     });
   } else {
-    console.log('\n✅ All patterns have consistent result counts between approaches!');
+    console.log('\nAll patterns have consistent result counts between approaches!');
   }
   
   // Check if results match expected count (5 for 2-minute data with overlapping windows)
@@ -99,12 +99,12 @@ function analyzePatternsComparison() {
   const unexpectedCounts = results.filter(r => r.approx !== expectedResults || r.fetching !== expectedResults);
   
   if (unexpectedCounts.length > 0) {
-    console.log(`\n📊 Patterns not matching expected count of ${expectedResults}:`);
+    console.log(`\nPatterns not matching expected count of ${expectedResults}:`);
     unexpectedCounts.forEach(p => {
       console.log(`   ${p.pattern}: Approximation=${p.approx}, Fetching=${p.fetching}`);
     });
   } else {
-    console.log(`\n🎯 All patterns have the expected ${expectedResults} results!`);
+    console.log(`\nAll patterns have the expected ${expectedResults} results!`);
   }
 }
 

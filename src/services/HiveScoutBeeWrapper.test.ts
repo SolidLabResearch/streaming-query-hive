@@ -5,7 +5,7 @@ describe('HiveScoutBeeWrapper', () => {
     let scoutBee: HiveScoutBeeWrapper;
 
     beforeEach(() => {
-        scoutBee = new HiveScoutBeeWrapper(100); 
+        scoutBee = new HiveScoutBeeWrapper(100); // Smaller buffer for testing
     });
 
     describe('Constructor and Initialization', () => {
@@ -34,8 +34,9 @@ describe('HiveScoutBeeWrapper', () => {
             scoutBee.addDataPoint(timestamp, value, topic);
             
             const stats = scoutBee.getBufferStats();
-            expect(stats.bufferSize).toBe(1);
-            expect(stats.valueRange.mean).toBe(value.toFixed(2));
+            expect(stats.count).toBe(1);
+            expect(stats.latest.value).toBe(value);
+            expect(stats.latest.topic).toBe(topic);
         });
 
         test('should maintain buffer size limit', () => {
@@ -45,7 +46,7 @@ describe('HiveScoutBeeWrapper', () => {
             }
 
             const stats = scoutBee.getBufferStats();
-            expect(stats.bufferSize).toBe(100); // Should be limited to buffer size
+            expect(stats.count).toBe(100); // Should be limited to buffer size
         });
 
         test('should handle multiple topics', () => {
@@ -54,9 +55,8 @@ describe('HiveScoutBeeWrapper', () => {
             scoutBee.addDataPoint(3000, 30, 'pressure');
 
             const stats = scoutBee.getBufferStats();
-            expect(stats.bufferSize).toBe(3);
-            expect(stats.valueRange.min).toBe(10);
-            expect(stats.valueRange.max).toBe(30);
+            expect(stats.count).toBe(3);
+            expect(stats.topics).toEqual(['temperature', 'humidity', 'pressure']);
         });
     });
 
@@ -110,8 +110,8 @@ describe('HiveScoutBeeWrapper', () => {
 
     describe('Approach Recommendation', () => {
         test('should return null for insufficient data', () => {
-            // Add only 3 data points (less than minimum of 5 for approach recommendation)
-            for (let i = 0; i < 3; i++) {
+            // Add only 5 data points (less than minimum of 10)
+            for (let i = 0; i < 5; i++) {
                 scoutBee.addDataPoint(Date.now() + i * 1000, i * 10, 'sensor1');
             }
 
@@ -144,11 +144,10 @@ describe('HiveScoutBeeWrapper', () => {
 
             const recommendation = scoutBee.getApproachRecommendation();
             expect(recommendation).not.toBeNull();
-            // Note: confidence might be 0 due to default fallback behavior
-            expect(recommendation!.confidence).toBeGreaterThanOrEqual(0);
+            expect(recommendation!.confidence).toBeGreaterThan(0);
             
             // Should have valid approach recommendation
-            const validApproaches = ['approximation-approach', 'fetching-client-side', 'chunked-approach', 'streaming-query-hive', 'default'];
+            const validApproaches = ['approximation-approach', 'fetching-client-side', 'chunked-approach', 'streaming-query-hive'];
             expect(validApproaches).toContain(recommendation!.recommendedApproach);
         });
 
@@ -174,8 +173,7 @@ describe('HiveScoutBeeWrapper', () => {
             const recommendation = scoutBee.getApproachRecommendation();
             expect(recommendation).not.toBeNull();
             expect(Array.isArray(recommendation!.reasoning)).toBe(true);
-            // Note: reasoning might be empty for default approach
-            expect(recommendation!.reasoning.length).toBeGreaterThanOrEqual(0);
+            expect(recommendation!.reasoning.length).toBeGreaterThan(0);
         });
     });
 
@@ -185,8 +183,9 @@ describe('HiveScoutBeeWrapper', () => {
             expect(Array.isArray(approaches)).toBe(true);
             expect(approaches.length).toBeGreaterThan(0);
             
-            // Should include default approaches (but 'streaming-query-hive' might not be present in all configurations)
+            // Should include default approaches
             expect(approaches).toContain('approximation-approach');
+            expect(approaches).toContain('streaming-query-hive');
         });
 
         test('should get approach configuration', () => {
@@ -270,15 +269,20 @@ describe('HiveScoutBeeWrapper', () => {
 
             const stats = scoutBee.getBufferStats();
             
-            expect(stats).toHaveProperty('bufferSize');
-            expect(stats).toHaveProperty('dataRate');
-            expect(stats).toHaveProperty('valueRange');
+            expect(stats).toHaveProperty('count');
+            expect(stats).toHaveProperty('mean');
+            expect(stats).toHaveProperty('min');
+            expect(stats).toHaveProperty('max');
+            expect(stats).toHaveProperty('variance');
+            expect(stats).toHaveProperty('topics');
             expect(stats).toHaveProperty('timeRange');
+            expect(stats).toHaveProperty('latest');
+            expect(stats).toHaveProperty('oldest');
 
-            expect(stats.bufferSize).toBe(5);
-            expect(stats.valueRange.min).toBe(10);
-            expect(stats.valueRange.max).toBe(30);
-            expect(stats.valueRange.mean).toBe('20.00');
+            expect(stats.count).toBe(5);
+            expect(stats.min).toBe(10);
+            expect(stats.max).toBe(30);
+            expect(stats.topics).toEqual(['temp', 'humidity', 'pressure']);
         });
 
         test('should track time range correctly', () => {
@@ -290,9 +294,9 @@ describe('HiveScoutBeeWrapper', () => {
             scoutBee.addDataPoint(endTime, 30, 'sensor1');
 
             const stats = scoutBee.getBufferStats();
-            expect(stats.timeRange.start).toBe(new Date(startTime).toISOString());
-            expect(stats.timeRange.end).toBe(new Date(endTime).toISOString());
-            expect(stats.timeRange.duration).toBe(`${endTime - startTime}ms`);
+            expect(stats.timeRange.start).toBe(startTime);
+            expect(stats.timeRange.end).toBe(endTime);
+            expect(stats.timeRange.duration).toBe(endTime - startTime);
         });
     });
 
@@ -371,55 +375,9 @@ describe('HiveScoutBeeWrapper', () => {
             
             // The recommendations might be different due to changed stream characteristics
             // But both should be valid
-            const validApproaches = ['approximation-approach', 'fetching-client-side', 'chunked-approach', 'streaming-query-hive', 'default'];
+            const validApproaches = ['approximation-approach', 'fetching-client-side', 'chunked-approach', 'streaming-query-hive'];
             expect(validApproaches).toContain(firstRecommendation!.recommendedApproach);
             expect(validApproaches).toContain(secondRecommendation!.recommendedApproach);
-        });
-    });
-
-    describe('Stream Pattern Simulation', () => {
-        test('should simulate stable stream pattern', () => {
-            scoutBee.simulateStreamPattern('stable', 20);
-            
-            const stats = scoutBee.getBufferStats();
-            expect(stats.bufferSize).toBe(20);
-            
-            const signature = scoutBee.getStreamSignature();
-            expect(signature).not.toBeNull();
-            expect(signature!.variance).toBeLessThan(50); // Should be relatively stable
-        });
-
-        test('should simulate volatile stream pattern', () => {
-            scoutBee.simulateStreamPattern('volatile', 25);
-            
-            const stats = scoutBee.getBufferStats();
-            expect(stats.bufferSize).toBe(25);
-            
-            const signature = scoutBee.getStreamSignature();
-            expect(signature).not.toBeNull();
-            expect(signature!.variance).toBeGreaterThan(0); // Should have some variance
-        });
-
-        test('should simulate periodic stream pattern', () => {
-            scoutBee.simulateStreamPattern('periodic', 30);
-            
-            const stats = scoutBee.getBufferStats();
-            expect(stats.bufferSize).toBe(30);
-        });
-
-        test('should simulate mixed stream pattern', () => {
-            scoutBee.simulateStreamPattern('mixed', 15);
-            
-            const stats = scoutBee.getBufferStats();
-            expect(stats.bufferSize).toBe(15);
-        });
-
-        test('should clear buffer correctly', () => {
-            scoutBee.simulateStreamPattern('stable', 10);
-            expect(scoutBee.getBufferStats().bufferSize).toBe(10);
-            
-            scoutBee.clearBuffer();
-            expect(scoutBee.getBufferStats().message).toBe("No data in buffer");
         });
     });
 });

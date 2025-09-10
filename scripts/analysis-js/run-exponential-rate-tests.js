@@ -25,34 +25,34 @@ async function runSingleTest(approach, pattern, rate) {
         
         child.on('close', (code) => {
             if (code === 0) {
-                console.log(`✅ Completed: ${approach} ${pattern} rate ${rate}`);
+                console.log(`Completed: ${approach} ${pattern} rate ${rate}`);
                 resolve();
             } else {
-                console.error(`❌ Failed: ${approach} ${pattern} rate ${rate} (exit code: ${code})`);
+                console.error(`Failed: ${approach} ${pattern} rate ${rate} (exit code: ${code})`);
                 reject(new Error(`Test failed with exit code ${code}`));
             }
         });
         
         child.on('error', (error) => {
-            console.error(`❌ Error: ${error.message}`);
+            console.error(`Error: ${error.message}`);
             reject(error);
         });
     });
 }
 
 async function runExponentialRateTests() {
-    console.log('🚀 Starting Exponential Rate Comparison Tests');
+    console.log('Starting Exponential Rate Comparison Tests');
     console.log(`Testing ${RATES.length} rates × ${PATTERNS.length} patterns = ${RATES.length * PATTERNS.length} approximation tests`);
     console.log(`Rates: ${RATES.join(', ')}`);
     console.log(`Patterns: ${PATTERNS.join(', ')}`);
     
     // First run all approximation tests
-    console.log('\n📊 PHASE 1: Running Approximation Tests');
+    console.log('\nPHASE 1: Running Approximation Tests');
     let completed = 0;
     const total = RATES.length * PATTERNS.length;
     
     for (const pattern of PATTERNS) {
-        console.log(`\n📈 Testing approximation for ${pattern}`);
+        console.log(`\nTesting approximation for ${pattern}`);
         
         for (const rate of RATES) {
             try {
@@ -71,25 +71,25 @@ async function runExponentialRateTests() {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
             } catch (error) {
-                console.error(`❌ Failed: approximation ${pattern} ${rate}`);
+                console.error(`Failed: approximation ${pattern} ${rate}`);
                 console.error(error.message);
                 // Continue with other tests
             }
         }
     }
     
-    console.log('\n🎉 Approximation tests completed!');
-    console.log('\n📋 Next: Run fetching tests with:');
+    console.log('\nApproximation tests completed!');
+    console.log('\nNext: Run fetching tests with:');
     console.log('node run-exponential-rate-tests.js fetching');
 }
 
 async function runFetchingTests() {
-    console.log('\n📊 PHASE 2: Running Fetching Client Side Tests');
+    console.log('\nPHASE 2: Running Fetching Client Side Tests');
     let completed = 0;
     const total = RATES.length * PATTERNS.length;
     
     for (const pattern of PATTERNS) {
-        console.log(`\n📈 Testing fetching for ${pattern}`);
+        console.log(`\nTesting fetching for ${pattern}`);
         
         for (const rate of RATES) {
             try {
@@ -102,15 +102,15 @@ async function runFetchingTests() {
                 await new Promise(resolve => setTimeout(resolve, 2000));
                 
             } catch (error) {
-                console.error(`❌ Failed: fetching ${pattern} ${rate}`);
+                console.error(`Failed: fetching ${pattern} ${rate}`);
                 console.error(error.message);
                 // Continue with other tests
             }
         }
     }
     
-    console.log('\n🎉 All exponential rate tests completed!');
-    console.log('\n📈 Next steps:');
+    console.log('\nAll exponential rate tests completed!');
+    console.log('\nNext steps:');
     console.log('1. Check logs/rate-comparison-approximation/ and logs/rate-comparison-fetching/');
     console.log('2. Run: node analyze-rate-comparison-results.js');
 }
@@ -126,7 +126,7 @@ if (phase === 'fetching') {
 
 // Handle interruption gracefully
 process.on('SIGINT', () => {
-    console.log('\n⚠️  Tests interrupted by user');
+    console.log('\n Tests interrupted by user');
     console.log('Partial results available in logs/ directory');
     process.exit(0);
 });

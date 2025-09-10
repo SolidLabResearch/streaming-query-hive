@@ -129,19 +129,19 @@ const challengingAvgDiff = challenging.reduce((sum, r) => sum + r.diff, 0) / cha
 const favorableAvgDiff = favorable.reduce((sum, r) => sum + r.diff, 0) / favorable.length;
 
 console.log();
-console.log('📊 CHALLENGING PATTERNS (Expected to be harder for approximation):');
+console.log('CHALLENGING PATTERNS (Expected to be harder for approximation):');
 console.log(`   • Average accuracy difference: ${challengingAvgDiff.toFixed(2)}%`);
 console.log(`   • Range: ${Math.min(...challenging.map(r => r.diff)).toFixed(2)}% - ${Math.max(...challenging.map(r => r.diff)).toFixed(2)}%`);
 console.log(`   • Patterns tested: ${challenging.length}/9`);
 
 console.log();
-console.log('📈 FAVORABLE PATTERNS (Expected to be easier for approximation):');
+console.log('FAVORABLE PATTERNS (Expected to be easier for approximation):');
 console.log(`   • Average accuracy difference: ${favorableAvgDiff.toFixed(2)}%`);
 console.log(`   • Range: ${Math.min(...favorable.map(r => r.diff)).toFixed(2)}% - ${Math.max(...favorable.map(r => r.diff)).toFixed(2)}%`);
 console.log(`   • Patterns tested: ${favorable.length}/7`);
 
 console.log();
-console.log('🔍 KEY OBSERVATIONS:');
+console.log('KEY OBSERVATIONS:');
 console.log('   • Approximation approach generates multiple results per pattern (1-16 results)');
 console.log('   • Fetching client side typically generates only 1 result per pattern');
 console.log('   • Some patterns show perfect accuracy (0.00% difference)');
@@ -150,7 +150,7 @@ console.log('   • Best approximation accuracy: gradual_trend (0.00%)');
 console.log('   • Worst approximation accuracy: exponential_growth (4603.33%)');
 
 console.log();
-console.log('⚠️  EXPERIMENT NOTES:');
+console.log(' EXPERIMENT NOTES:');
 console.log('   • Fetching client side may have terminated early (only 1 result per pattern)');
 console.log('   • Some favorable patterns missing fetching client side data');
 console.log('   • Consider extending experiment duration for better comparison');

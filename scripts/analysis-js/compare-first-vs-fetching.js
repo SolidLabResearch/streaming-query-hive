@@ -203,7 +203,7 @@ console.log('                     DETAILED RESULTS ARRAYS');
 console.log('='.repeat(80));
 
 results.forEach(result => {
-    console.log(`\n📊 ${result.pattern.replace('_', ' ').toUpperCase()} (${result.type}):`);
+    console.log(`\n${result.pattern.replace('_', ' ').toUpperCase()} (${result.type}):`);
     console.log(`   Approximation Results (${result.allApproxResults.length}): [${result.allApproxResults.map(r => r.toFixed(4)).join(', ')}]`);
     console.log(`   Fetching Results (${result.allFetchingResults.length}):     [${result.allFetchingResults.map(r => r.toFixed(4)).join(', ')}]`);
     
@@ -213,7 +213,7 @@ results.forEach(result => {
         console.log(`   Best Accuracy:                      ${Math.min(...result.allAccuracies).toFixed(2)}%`);
         console.log(`   Worst Accuracy:                     ${Math.max(...result.allAccuracies).toFixed(2)}%`);
     } else {
-        console.log(`   ⚠️  Cannot calculate accuracy - missing data`);
+        console.log(`    Cannot calculate accuracy - missing data`);
     }
 });
 
@@ -259,7 +259,7 @@ console.log('\n' + '='.repeat(80));
 console.log('                               COMPARISON SUMMARY');
 console.log('='.repeat(80));
 
-console.log(`\n📊 TOTAL PATTERNS WITH COMPLETE DATA:`);
+console.log(`\nTOTAL PATTERNS WITH COMPLETE DATA:`);
 console.log(`   • First result comparisons: ${validResults.length}/16`);
 console.log(`   • Average result comparisons: ${validAvgResults.length}/16`);
 
@@ -310,7 +310,7 @@ if (validResults.length > 0) {
     const overallMin = Math.min(...validResults.map(r => r.firstResultAccuracy));
     const overallMax = Math.max(...validResults.map(r => r.firstResultAccuracy));
     
-    console.log(`\n🎯 OVERALL PERFORMANCE - FIRST RESULTS:`);
+    console.log(`\nOVERALL PERFORMANCE - FIRST RESULTS:`);
     console.log(`   • Average difference: ${overallAvg.toFixed(3)}%`);
     console.log(`   • Range: ${overallMin.toFixed(3)}% - ${overallMax.toFixed(3)}%`);
 }
@@ -320,13 +320,13 @@ if (validAvgResults.length > 0) {
     const overallMinAll = Math.min(...validAvgResults.map(r => r.averageAccuracy));
     const overallMaxAll = Math.max(...validAvgResults.map(r => r.averageAccuracy));
     
-    console.log(`\n🎯 OVERALL PERFORMANCE - AVERAGE ACROSS ALL WINDOWS:`);
+    console.log(`\nOVERALL PERFORMANCE - AVERAGE ACROSS ALL WINDOWS:`);
     console.log(`   • Average difference: ${overallAvgAll.toFixed(3)}%`);
     console.log(`   • Range: ${overallMinAll.toFixed(3)}% - ${overallMaxAll.toFixed(3)}%`);
 }
 
 // Result count analysis
-console.log(`\n📈 RESULT COUNT ANALYSIS:`);
+console.log(`\nRESULT COUNT ANALYSIS:`);
 const approxCounts = results.map(r => r.approxResultCount);
 const fetchingCounts = results.map(r => r.fetchingResultCount);
 
@@ -338,7 +338,7 @@ const missingApprox = results.filter(r => r.firstApprox === null);
 const missingFetching = results.filter(r => r.firstFetching === null);
 
 if (missingApprox.length > 0 || missingFetching.length > 0) {
-    console.log(`\n⚠️  MISSING DATA:`);
+    console.log(`\n MISSING DATA:`);
     if (missingApprox.length > 0) {
         console.log(`   • Missing approximation data: ${missingApprox.map(r => r.pattern).join(', ')}`);
     }

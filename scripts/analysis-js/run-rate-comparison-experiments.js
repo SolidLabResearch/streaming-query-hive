@@ -64,10 +64,10 @@ class ExponentialRateComparisonExperiment {
                 fs.writeFileSync(logFile, logContent);
                 
                 if (code === 0) {
-                    console.log(`✅ ${approach} ${pattern} rate ${rate} completed successfully`);
+                    console.log(`${approach} ${pattern} rate ${rate} completed successfully`);
                     resolve({ approach, pattern, rate, success: true, logFile });
                 } else {
-                    console.log(`❌ ${approach} ${pattern} rate ${rate} failed with code ${code}`);
+                    console.log(`${approach} ${pattern} rate ${rate} failed with code ${code}`);
                     resolve({ approach, pattern, rate, success: false, code, logFile });
                 }
             });
@@ -80,9 +80,9 @@ class ExponentialRateComparisonExperiment {
     }
 
     async runAllExperiments() {
-        console.log('🚀 Starting Exponential Rate Comparison Experiments');
-        console.log(`📊 Testing rates: ${this.rates.join(', ')}`);
-        console.log(`📈 Testing patterns: ${this.patterns.join(', ')}`);
+        console.log('Starting Exponential Rate Comparison Experiments');
+        console.log(`Testing rates: ${this.rates.join(', ')}`);
+        console.log(`Testing patterns: ${this.patterns.join(', ')}`);
         console.log(`🔬 Testing approaches: ${this.approaches.join(', ')}`);
         console.log(`📂 Results will be logged to: ${this.logDir}`);
         
@@ -124,7 +124,7 @@ class ExponentialRateComparisonExperiment {
 
     generateSummaryReport(results, duration) {
         console.log('\n' + '='.repeat(80));
-        console.log('📋 EXPERIMENT SUMMARY REPORT');
+        console.log('EXPERIMENT SUMMARY REPORT');
         console.log('='.repeat(80));
         
         const summary = {
@@ -136,9 +136,9 @@ class ExponentialRateComparisonExperiment {
             results: results
         };
 
-        console.log(`📊 Total Experiments: ${summary.totalExperiments}`);
-        console.log(`✅ Successful: ${summary.successful}`);
-        console.log(`❌ Failed: ${summary.failed}`);
+        console.log(`Total Experiments: ${summary.totalExperiments}`);
+        console.log(`Successful: ${summary.successful}`);
+        console.log(`Failed: ${summary.failed}`);
         console.log(`⏱️  Total Duration: ${duration.toFixed(1)} seconds`);
         
         // Group results by approach
@@ -148,7 +148,7 @@ class ExponentialRateComparisonExperiment {
             byApproach[r.approach].push(r);
         });
 
-        console.log('\n📈 Results by Approach:');
+        console.log('\nResults by Approach:');
         Object.entries(byApproach).forEach(([approach, results]) => {
             const successful = results.filter(r => r.success).length;
             console.log(`  ${approach}: ${successful}/${results.length} successful`);
@@ -170,16 +170,16 @@ class ExponentialRateComparisonExperiment {
         // Save detailed report
         const reportPath = path.join(this.logDir, 'experiment_summary.json');
         fs.writeFileSync(reportPath, JSON.stringify(summary, null, 2));
-        console.log(`\n📄 Detailed report saved to: ${reportPath}`);
+        console.log(`\nDetailed report saved to: ${reportPath}`);
 
         if (summary.failed > 0) {
-            console.log('\n❌ Failed Experiments:');
+            console.log('\nFailed Experiments:');
             results.filter(r => !r.success).forEach(r => {
                 console.log(`  ${r.approach} ${r.pattern} rate ${r.rate}: ${r.error || 'Exit code ' + r.code}`);
             });
         }
 
-        console.log('\n🎯 Next Steps:');
+        console.log('\nNext Steps:');
         console.log('1. Check individual log files for detailed results');
         console.log('2. Run accuracy analysis on the results');
         console.log('3. Generate comparison charts');
@@ -187,7 +187,7 @@ class ExponentialRateComparisonExperiment {
     }
 
     async runSpecificRate(rate) {
-        console.log(`🎯 Running experiments for rate: ${rate}`);
+        console.log(`Running experiments for rate: ${rate}`);
         
         const results = [];
         for (const pattern of this.patterns) {
@@ -209,7 +209,7 @@ class ExponentialRateComparisonExperiment {
             }
         }
         
-        console.log(`\n✅ Completed experiments for rate ${rate}`);
+        console.log(`\nCompleted experiments for rate ${rate}`);
         return results;
     }
 }
@@ -230,7 +230,7 @@ async function main() {
         if (experiment.rates.includes(rate)) {
             await experiment.runSpecificRate(rate);
         } else {
-            console.error(`❌ Invalid rate: ${rate}. Valid rates: ${experiment.rates.join(', ')}`);
+            console.error(`Invalid rate: ${rate}. Valid rates: ${experiment.rates.join(', ')}`);
             process.exit(1);
         }
     } else {

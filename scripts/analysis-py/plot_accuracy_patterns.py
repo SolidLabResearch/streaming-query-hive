@@ -62,7 +62,7 @@ def create_accuracy_bar_chart():
     plt.tight_layout()
     plt.savefig('accuracy_bar_chart.png', dpi=300, bbox_inches='tight')
     
-    print("✅ Bar chart saved as 'accuracy_bar_chart.png'")
+    print("Bar chart saved as 'accuracy_bar_chart.png'")
 
 if __name__ == "__main__":
     print("Creating accuracy bar chart...")

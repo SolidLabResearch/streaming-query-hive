@@ -85,9 +85,9 @@ async function testSinglePattern() {
     console.log(`Expected results: 2`);
     
     if (successfulResults <= 3) {
-      console.log('✅ SUCCESS: Result count is reasonable (≤3)');
+      console.log('SUCCESS: Result count is reasonable (≤3)');
     } else {
-      console.log('❌ ISSUE: Still generating too many results');
+      console.log('ISSUE: Still generating too many results');
     }
     
     // Extract timing info
@@ -104,7 +104,7 @@ async function testSinglePattern() {
       console.log(`Total duration: ${totalDuration}ms (${(totalDuration/1000).toFixed(1)}s)`);
     }
   } else {
-    console.log('❌ No log file found');
+    console.log('No log file found');
   }
 }
 

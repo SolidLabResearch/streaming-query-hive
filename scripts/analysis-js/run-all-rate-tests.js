@@ -23,10 +23,10 @@ async function runSingleTest(approach, pattern, rate) {
         
         child.on('close', (code) => {
             if (code === 0) {
-                console.log(`✅ Completed: ${approach} - ${pattern} - rate ${rate}`);
+                console.log(`Completed: ${approach} - ${pattern} - rate ${rate}`);
                 resolve();
             } else {
-                console.error(`❌ Failed: ${approach} - ${pattern} - rate ${rate}`);
+                console.error(`Failed: ${approach} - ${pattern} - rate ${rate}`);
                 reject(new Error(`Exit code: ${code}`));
             }
         });
@@ -34,14 +34,14 @@ async function runSingleTest(approach, pattern, rate) {
 }
 
 async function runAllTests() {
-    console.log('🚀 Starting Rate Comparison Experiments with Corrected Data');
+    console.log('Starting Rate Comparison Experiments with Corrected Data');
     console.log('='.repeat(70));
     
     let completed = 0;
     const total = RATES.length * PATTERNS.length * 2; // 2 approaches
     
     for (const approach of ['approximation', 'fetching']) {
-        console.log(`\n📊 Running ${approach.toUpperCase()} experiments...`);
+        console.log(`\nRunning ${approach.toUpperCase()} experiments...`);
         
         for (const pattern of PATTERNS) {
             console.log(`\n🔬 Pattern: ${pattern}`);
@@ -63,8 +63,8 @@ async function runAllTests() {
         }
     }
     
-    console.log('\n🎉 All experiments completed!');
-    console.log(`\n📈 Ready for analysis. Run: node approximation-accuracy-analysis.js`);
+    console.log('\nAll experiments completed!');
+    console.log(`\nReady for analysis. Run: node approximation-accuracy-analysis.js`);
 }
 
 runAllTests().catch(console.error);

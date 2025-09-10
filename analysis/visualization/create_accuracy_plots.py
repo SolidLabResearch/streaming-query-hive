@@ -93,10 +93,10 @@ def create_accuracy_plots():
     plt.savefig('logs/approximation_accuracy_comparison.png', dpi=300, bbox_inches='tight', 
                 facecolor='white', edgecolor='none')
     
-    print("📊 Bar plots saved to: logs/approximation_accuracy_comparison.png")
+    print("Bar plots saved to: logs/approximation_accuracy_comparison.png")
     
     # Display statistics
-    print("\n📈 EXPONENTIAL GROWTH STATISTICS:")
+    print("\nEXPONENTIAL GROWTH STATISTICS:")
     if not growth_data.empty:
         print(f"   • Average Accuracy: {growth_data['Accuracy (%)'].mean():.2f}%")
         print(f"   • Best Rate: {growth_data.loc[growth_data['Accuracy (%)'].idxmax(), 'Rate']} ({growth_data['Accuracy (%)'].max():.2f}%)")
@@ -147,7 +147,7 @@ def create_individual_plots(growth_data, decay_data):
         plt.tight_layout()
         plt.savefig('logs/exponential_growth_accuracy.png', dpi=300, bbox_inches='tight', 
                    facecolor='white', edgecolor='none')
-        print("📈 Growth plot saved to: logs/exponential_growth_accuracy.png")
+        print("Growth plot saved to: logs/exponential_growth_accuracy.png")
         plt.close()
     
     # Individual plot for Exponential Decay
@@ -190,12 +190,12 @@ def create_individual_plots(growth_data, decay_data):
         plt.close()
 
 if __name__ == "__main__":
-    print("🎨 Creating Approximation Accuracy Bar Plots...")
+    print("Creating Approximation Accuracy Bar Plots...")
     print("=" * 60)
     
     try:
         create_accuracy_plots()
-        print("\n✅ All plots created successfully!")
+        print("\nAll plots created successfully!")
         
         print("\n📁 Generated Files:")
         print("   • logs/approximation_accuracy_comparison.png (Combined plot)")
@@ -203,7 +203,7 @@ if __name__ == "__main__":
         print("   • logs/exponential_decay_accuracy.png (Decay only)")
         
     except FileNotFoundError:
-        print("❌ Error: Could not find logs/approximation_accuracy_analysis.csv")
+        print("Error: Could not find logs/approximation_accuracy_analysis.csv")
         print("   Please run the accuracy analysis first: node approximation-accuracy-analysis.js")
     except Exception as e:
-        print(f"❌ Error creating plots: {e}")
+        print(f"Error creating plots: {e}")

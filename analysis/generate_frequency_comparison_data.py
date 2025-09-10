@@ -214,7 +214,7 @@ class HighFrequencyOscillationGenerator:
             
             # Note aliasing effects for high frequencies
             if frequency >= 1.5:
-                print(f"  ⚠️  High frequency {frequency} Hz may show aliasing artifacts due to 250ms sampling (4 Hz Nyquist limit)")
+                print(f"   High frequency {frequency} Hz may show aliasing artifacts due to 250ms sampling (4 Hz Nyquist limit)")
         
         # Generate configuration file
         self.generate_experiment_config()
@@ -227,12 +227,12 @@ class HighFrequencyOscillationGenerator:
         
     def print_frequency_analysis(self):
         """Print analysis of frequencies relative to Nyquist limit"""
-        print(f"\n📊 FREQUENCY ANALYSIS:")
+        print(f"\nFREQUENCY ANALYSIS:")
         print(f"   Sampling rate: {self.sampling_frequency:.1f} Hz ({self.timestamp_interval_ms}ms intervals)")
         print(f"   Nyquist frequency: {self.sampling_frequency/2:.1f} Hz")
         print(f"   Duration: {self.total_duration_s:.1f} seconds ({self.data_points} samples)")
         
-        print(f"\n📈 FREQUENCY BREAKDOWN:")
+        print(f"\nFREQUENCY BREAKDOWN:")
         for freq in self.frequencies:
             nyquist_info = self.calculate_nyquist_info(freq)
             cycles_total = freq * self.total_duration_s

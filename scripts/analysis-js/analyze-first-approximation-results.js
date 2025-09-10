@@ -138,7 +138,7 @@ console.log('='.repeat(100));
 
 if (challenging.length > 0) {
     const challengingAvgDiff = challenging.reduce((sum, r) => sum + r.diff, 0) / challenging.length;
-    console.log('\n📊 CHALLENGING PATTERNS (First approximation result):');
+    console.log('\nCHALLENGING PATTERNS (First approximation result):');
     console.log(`   • Average accuracy difference: ${challengingAvgDiff.toFixed(2)}%`);
     console.log(`   • Range: ${Math.min(...challenging.map(r => r.diff)).toFixed(2)}% - ${Math.max(...challenging.map(r => r.diff)).toFixed(2)}%`);
     console.log(`   • Patterns with data: ${challenging.length}/9`);
@@ -146,13 +146,13 @@ if (challenging.length > 0) {
 
 if (favorable.length > 0) {
     const favorableAvgDiff = favorable.reduce((sum, r) => sum + r.diff, 0) / favorable.length;
-    console.log('\n📈 FAVORABLE PATTERNS (First approximation result):');
+    console.log('\nFAVORABLE PATTERNS (First approximation result):');
     console.log(`   • Average accuracy difference: ${favorableAvgDiff.toFixed(2)}%`);
     console.log(`   • Range: ${Math.min(...favorable.map(r => r.diff)).toFixed(2)}% - ${Math.max(...favorable.map(r => r.diff)).toFixed(2)}%`);
     console.log(`   • Patterns with data: ${favorable.length}/7`);
 }
 
-console.log('\n🔍 KEY OBSERVATIONS (First Result Analysis):');
+console.log('\nKEY OBSERVATIONS (First Result Analysis):');
 console.log('   • Comparing initial approximation accuracy vs exact computation');
 console.log('   • Eliminates variability from multiple approximation iterations');
 console.log('   • Shows immediate approximation performance');

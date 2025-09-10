@@ -25,7 +25,7 @@ console.log('🧪 Testing Exponential Patterns: Approximation vs Fetching Client
 console.log('=' * 60);
 
 async function runTest(approach, approachName, pattern) {
-    console.log(`\n📊 Running ${approachName} approach for ${pattern}...`);
+    console.log(`\nRunning ${approachName} approach for ${pattern}...`);
     
     try {
         const startTime = Date.now();
@@ -39,11 +39,11 @@ async function runTest(approach, approachName, pattern) {
         });
         
         const duration = Date.now() - startTime;
-        console.log(`✅ ${approachName} completed for ${pattern} in ${duration}ms`);
+        console.log(`${approachName} completed for ${pattern} in ${duration}ms`);
         return { success: true, duration, pattern, approach: approachName };
         
     } catch (error) {
-        console.log(`❌ ${approachName} failed for ${pattern}: ${error.message}`);
+        console.log(`${approachName} failed for ${pattern}: ${error.message}`);
         return { success: false, error: error.message, pattern, approach: approachName };
     }
 }
@@ -81,7 +81,7 @@ async function runAllTests() {
 }
 
 function generateSummary(results) {
-    console.log('\n📋 TEST SUMMARY');
+    console.log('\nTEST SUMMARY');
     console.log('=' * 50);
     
     const byPattern = {};
@@ -100,19 +100,19 @@ function generateSummary(results) {
         const fetching = patternResults['Fetching Client Side'];
         
         if (approx) {
-            console.log(`  Approximation: ${approx.success ? '✅ Success' : '❌ Failed'} ${approx.duration ? `(${approx.duration}ms)` : ''}`);
+            console.log(`  Approximation: ${approx.success ? 'Success' : 'Failed'} ${approx.duration ? `(${approx.duration}ms)` : ''}`);
         }
         
         if (fetching) {
-            console.log(`  Fetching Client Side: ${fetching.success ? '✅ Success' : '❌ Failed'} ${fetching.duration ? `(${fetching.duration}ms)` : ''}`);
+            console.log(`  Fetching Client Side: ${fetching.success ? 'Success' : 'Failed'} ${fetching.duration ? `(${fetching.duration}ms)` : ''}`);
         }
         
         if (approx?.success && fetching?.success) {
             const speedDiff = approx.duration - fetching.duration;
             if (speedDiff > 0) {
-                console.log(`  ⚡ Fetching was ${speedDiff}ms faster`);
+                console.log(`  Fetching was ${speedDiff}ms faster`);
             } else {
-                console.log(`  ⚡ Approximation was ${Math.abs(speedDiff)}ms faster`);
+                console.log(`  Approximation was ${Math.abs(speedDiff)}ms faster`);
             }
         }
     }
@@ -125,7 +125,7 @@ function generateSummary(results) {
         console.log(`  Fetching logs: logs/fetching-client-side-patterns/challenging_${pattern}/`);
     });
     
-    console.log('\n🔍 Next steps:');
+    console.log('\nNext steps:');
     console.log('1. Run compare-first-vs-fetching.js to analyze accuracy differences');
     console.log('2. Check log files for value progressions and timing details');
     console.log('3. Look for patterns where extreme exponentials break the "plateau effect"');
@@ -135,7 +135,7 @@ function generateSummary(results) {
 runAllTests()
     .then(results => {
         generateSummary(results);
-        console.log('\n🎯 Exponential pattern testing complete!');
+        console.log('\nExponential pattern testing complete!');
     })
     .catch(error => {
         console.error('💥 Test execution failed:', error);

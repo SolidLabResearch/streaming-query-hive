@@ -22,7 +22,7 @@ class UnifiedAverageExtractor {
 
     extractUnifiedAverages(filePath) {
         if (!fs.existsSync(filePath)) {
-            console.log(`⚠️  File not found: ${filePath}`);
+            console.log(` File not found: ${filePath}`);
             return [];
         }
 
@@ -42,7 +42,7 @@ class UnifiedAverageExtractor {
 
             return unifiedAverages;
         } catch (error) {
-            console.error(`❌ Error reading file ${filePath}:`, error.message);
+            console.error(`Error reading file ${filePath}:`, error.message);
             return [];
         }
     }
@@ -71,11 +71,11 @@ class UnifiedAverageExtractor {
     }
 
     extractAllResults() {
-        console.log('🔍 Extracting unifiedAverage values from logs...\n');
+        console.log('Extracting unifiedAverage values from logs...\n');
 
         for (const pattern of this.patterns) {
             for (const rate of this.rates) {
-                console.log(`📊 Processing ${pattern} with rate ${rate}`);
+                console.log(`Processing ${pattern} with rate ${rate}`);
 
                 // Approximation results
                 const approxLogPath = path.join(
@@ -108,7 +108,7 @@ class UnifiedAverageExtractor {
     }
 
     compareAccuracy() {
-        console.log('\n📈 ACCURACY COMPARISON RESULTS\n');
+        console.log('\nACCURACY COMPARISON RESULTS\n');
         console.log('=' .repeat(80));
 
         for (const pattern of this.patterns) {
@@ -142,7 +142,7 @@ class UnifiedAverageExtractor {
     }
 
     generateDetailedReport() {
-        console.log('\n\n📋 DETAILED STATISTICS REPORT\n');
+        console.log('\n\nDETAILED STATISTICS REPORT\n');
         console.log('=' .repeat(80));
 
         for (const pattern of this.patterns) {
@@ -153,7 +153,7 @@ class UnifiedAverageExtractor {
                 const approxStats = this.results.approximation[key];
                 const fetchingStats = this.results.fetching[key];
 
-                console.log(`\n📊 Rate ${rate}:`);
+                console.log(`\nRate ${rate}:`);
                 console.log('─'.repeat(40));
 
                 if (approxStats && approxStats.count > 0) {
@@ -190,7 +190,7 @@ class UnifiedAverageExtractor {
         };
 
         fs.writeFileSync(outputFile, JSON.stringify(reportData, null, 2));
-        console.log(`\n💾 Results saved to: ${outputFile}`);
+        console.log(`\nResults saved to: ${outputFile}`);
     }
 
     generateSummaryStats() {
@@ -244,14 +244,14 @@ class UnifiedAverageExtractor {
     }
 
     run() {
-        console.log('🚀 Starting Unified Average Extraction and Accuracy Analysis\n');
+        console.log('Starting Unified Average Extraction and Accuracy Analysis\n');
         
         this.extractAllResults();
         this.compareAccuracy();
         this.generateDetailedReport();
         this.saveResults();
         
-        console.log('\n✅ Analysis complete!');
+        console.log('\nAnalysis complete!');
     }
 }
 

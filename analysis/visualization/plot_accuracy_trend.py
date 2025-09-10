@@ -75,5 +75,5 @@ plt.figtext(0.02, 0.02, summary_text, fontsize=10,
 plt.savefig('accuracy_trend_analysis.png', dpi=300, bbox_inches='tight')
 plt.show()
 
-print("✅ Simple accuracy trend plot created!")
+print("Simple accuracy trend plot created!")
 print("📁 Saved as: accuracy_trend_analysis.png")

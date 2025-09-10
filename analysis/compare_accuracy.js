@@ -120,7 +120,7 @@ class AccuracyComparator {
             }
         }
         
-        console.log(`\n🔍 Analyzing ${datasetName} (${frequency} Hz, ${this.getNyquistRatio(frequency).toFixed(2)}x Nyquist, ${this.getAliasingRisk(frequency)} aliasing risk):`);
+        console.log(`\nAnalyzing ${datasetName} (${frequency} Hz, ${this.getNyquistRatio(frequency).toFixed(2)}x Nyquist, ${this.getAliasingRisk(frequency)} aliasing risk):`);
 
         // Find approximation log files
         const approxDir = path.join(this.approximationDir, datasetName);
@@ -165,7 +165,7 @@ class AccuracyComparator {
             }
         }
 
-        console.log(`   📊 Data points found:`);
+        console.log(`   Data points found:`);
         console.log(`      Approximation: ${approxResults.length} results`);
         console.log(`      Fetching (GT): ${fetchingResults.length} results`);
 
@@ -179,7 +179,7 @@ class AccuracyComparator {
         const metrics = this.calculateAccuracyMetrics(fetchingResults, approxResults);
         
         if (metrics) {
-            console.log(`   📈 Accuracy Metrics:`);
+            console.log(`   Accuracy Metrics:`);
             console.log(`      Simple Accuracy: ${metrics.accuracy.toFixed(2)}%`);
             console.log(`      MAE (Mean Absolute Error): ${metrics.mae.toFixed(4)}`);
             console.log(`      MAPE (Mean Absolute Percentage Error): ${metrics.mape.toFixed(2)}%`);
@@ -192,9 +192,9 @@ class AccuracyComparator {
             if (metrics.mape > 5) grade = 'Fair';
             if (metrics.mape > 10) grade = 'Poor';
             
-            console.log(`      📊 Accuracy Grade: ${grade}`);
+            console.log(`      Accuracy Grade: ${grade}`);
         } else {
-            console.log(`   ❌ Cannot calculate metrics - insufficient data`);
+            console.log(`   Cannot calculate metrics - insufficient data`);
         }
 
         return {
@@ -208,7 +208,7 @@ class AccuracyComparator {
     }
 
     async runComparison() {
-        console.log('🎯 ACCURACY COMPARISON: Approximation vs Fetching Client Side');
+        console.log('ACCURACY COMPARISON: Approximation vs Fetching Client Side');
         console.log('📁 Analyzing complex oscillation results across all frequencies\n');
 
         const allResults = [];
@@ -219,7 +219,7 @@ class AccuracyComparator {
         }
 
         // Generate summary
-        console.log('\n📊 SUMMARY COMPARISON:');
+        console.log('\nSUMMARY COMPARISON:');
         console.log('┌───────────┬─────────────┬──────────────┬──────────────┬──────────────┬──────────────┬─────────────┐');
         console.log('│ Frequency │ Nyquist     │ Aliasing     │ Accuracy (%) │ MAPE (%)     │ MAE          │ Grade       │');
         console.log('├───────────┼─────────────┼──────────────┼──────────────┼──────────────┼──────────────┼─────────────┤');
@@ -255,7 +255,7 @@ class AccuracyComparator {
             const avgMAPE = validResults.reduce((sum, r) => sum + r.metrics.mape, 0) / validResults.length;
             const avgMAE = validResults.reduce((sum, r) => sum + r.metrics.mae, 0) / validResults.length;
             
-            console.log(`   📊 Overall Performance:`);
+            console.log(`   Overall Performance:`);
             const avgAccuracy = validResults.reduce((sum, r) => sum + r.metrics.accuracy, 0) / validResults.length;
             console.log(`      Average Simple Accuracy: ${avgAccuracy.toFixed(2)}%`);
             console.log(`      Average MAPE: ${avgMAPE.toFixed(2)}%`);
@@ -296,7 +296,7 @@ class AccuracyComparator {
         };
         
         fs.writeFileSync(summaryPath, JSON.stringify(summaryData, null, 2));
-        console.log(`\n💾 Detailed results saved to: ${summaryPath}`);
+        console.log(`\nDetailed results saved to: ${summaryPath}`);
     }
 }
 

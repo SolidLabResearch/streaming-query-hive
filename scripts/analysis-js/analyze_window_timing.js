@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 function analyzeWindowTiming() {
-  console.log('🔍 WINDOW TIMING ANALYSIS\n');
+  console.log('WINDOW TIMING ANALYSIS\n');
   
   // Analyze approximation approach timing
   console.log('=== APPROXIMATION APPROACH TIMING ===');
@@ -97,8 +97,8 @@ function analyzeWindowTiming() {
   }
   
   console.log('\n=== ANALYSIS ===');
-  console.log(`📊 Approximation approach: ${approxResults.length} results`);
-  console.log(`📊 Fetching client side: ${fetchingResults.length} results`);
+  console.log(`Approximation approach: ${approxResults.length} results`);
+  console.log(`Fetching client side: ${fetchingResults.length} results`);
   
   if (approxResults.length > 0) {
     const avgApproxInterval = approxResults.slice(1).reduce((sum, result, i) => {
@@ -115,12 +115,12 @@ function analyzeWindowTiming() {
   }
   
   console.log('\n=== EXPECTED vs ACTUAL ===');
-  console.log('🎯 Expected: 2 results for 2-minute data stream');
-  console.log('📝 Window config: RANGE 120000ms (120s), STEP 60000ms (60s)');
-  console.log('📝 Data duration: 2 minutes (120s)');
-  console.log('📝 Expected windows: [0-120s], [60-180s] = 2 overlapping windows');
-  console.log(`❌ Approximation actual: ${approxResults.length} results`);
-  console.log(`✅ Fetching actual: ${fetchingResults.length} results`);
+  console.log('Expected: 2 results for 2-minute data stream');
+  console.log('Window config: RANGE 120000ms (120s), STEP 60000ms (60s)');
+  console.log('Data duration: 2 minutes (120s)');
+  console.log('Expected windows: [0-120s], [60-180s] = 2 overlapping windows');
+  console.log(`Approximation actual: ${approxResults.length} results`);
+  console.log(`Fetching actual: ${fetchingResults.length} results`);
 }
 
 analyzeWindowTiming();

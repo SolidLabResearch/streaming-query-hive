@@ -20,30 +20,30 @@ async function runExperiment(pattern, rate) {
         
         child.on('close', (code) => {
             if (code === 0) {
-                console.log(`✅ Completed: ${pattern} rate ${rate}`);
+                console.log(`Completed: ${pattern} rate ${rate}`);
                 resolve();
             } else {
-                console.error(`❌ Failed: ${pattern} rate ${rate} (exit code: ${code})`);
+                console.error(`Failed: ${pattern} rate ${rate} (exit code: ${code})`);
                 reject(new Error(`Experiment failed with exit code ${code}`));
             }
         });
         
         child.on('error', (error) => {
-            console.error(`❌ Error: ${error.message}`);
+            console.error(`Error: ${error.message}`);
             reject(error);
         });
     });
 }
 
 async function runAllExperiments() {
-    console.log('🚀 Starting Fetching Client Side Rate Comparison Experiments');
+    console.log('Starting Fetching Client Side Rate Comparison Experiments');
     console.log(`Testing ${RATES.length} rates × ${PATTERNS.length} patterns = ${RATES.length * PATTERNS.length} total experiments`);
     
     let completed = 0;
     const total = RATES.length * PATTERNS.length;
     
     for (const pattern of PATTERNS) {
-        console.log(`\n📈 Testing ${pattern} pattern`);
+        console.log(`\nTesting ${pattern} pattern`);
         
         for (const rate of RATES) {
             try {
@@ -63,8 +63,8 @@ async function runAllExperiments() {
         }
     }
     
-    console.log('\n🎉 Fetching client side experiments completed!');
-    console.log(`\n📊 Results summary:`);
+    console.log('\nFetching client side experiments completed!');
+    console.log(`\nResults summary:`);
     console.log(`- Patterns: ${PATTERNS.join(', ')}`);
     console.log(`- Rates: ${RATES.join(', ')}`);
     console.log(`- Total experiments: ${total}`);
@@ -72,7 +72,7 @@ async function runAllExperiments() {
 
 // Handle interruption gracefully
 process.on('SIGINT', () => {
-    console.log('\n⚠️ Experiments interrupted');
+    console.log('\nExperiments interrupted');
     process.exit(0);
 });
 

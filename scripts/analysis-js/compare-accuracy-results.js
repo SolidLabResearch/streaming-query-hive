@@ -16,20 +16,20 @@ class AccuracyComparisonAnalyzer {
     }
 
     loadResults() {
-        console.log('📊 Loading experiment results...\n');
+        console.log('Loading experiment results...\n');
         
         // Load approximation results
         const approxSummaryPath = './logs/rate-comparison-approximation/approximation_rate_comparison_summary.json';
         if (fs.existsSync(approxSummaryPath)) {
             const approxData = JSON.parse(fs.readFileSync(approxSummaryPath, 'utf8'));
-            console.log(`✅ Loaded approximation summary: ${approxData.results.length} experiments`);
+            console.log(`Loaded approximation summary: ${approxData.results.length} experiments`);
         }
         
         // Load fetching results
         const fetchSummaryPath = './logs/rate-comparison-fetching/fetching_rate_comparison_summary.json';
         if (fs.existsSync(fetchSummaryPath)) {
             const fetchData = JSON.parse(fs.readFileSync(fetchSummaryPath, 'utf8'));
-            console.log(`✅ Loaded fetching summary: ${fetchData.results.length} experiments`);
+            console.log(`Loaded fetching summary: ${fetchData.results.length} experiments`);
         }
         
         // Load individual experiment results
@@ -59,11 +59,11 @@ class AccuracyComparisonAnalyzer {
         const resourceFile = path.join(resultDir, resourceFileNames[approach]);
         
         if (!fs.existsSync(logFile)) {
-            console.log(`❌ Missing log file: ${logFile}`);
+            console.log(`Missing log file: ${logFile}`);
             return null;
         }
         
-        console.log(`✅ Found results: ${approach} ${pattern} rate=${rate}`);
+        console.log(`Found results: ${approach} ${pattern} rate=${rate}`);
         
         // Parse CSV files
         const logData = this.parseCSV(logFile);
@@ -118,7 +118,7 @@ class AccuracyComparisonAnalyzer {
         }
         
         if (!valueColumn) {
-            console.log(`⚠️  No value column found in log data for ${pattern} rate ${rate}`);
+            console.log(` No value column found in log data for ${pattern} rate ${rate}`);
             return null;
         }
         
@@ -197,11 +197,11 @@ class AccuracyComparisonAnalyzer {
     }
 
     generateComparisonReport() {
-        console.log('\n📈 EXPONENTIAL RATE COMPARISON ANALYSIS');
+        console.log('\nEXPONENTIAL RATE COMPARISON ANALYSIS');
         console.log('='.repeat(70));
         
         // Accuracy comparison table
-        console.log('\n📊 ACCURACY COMPARISON (MAPE - Lower is Better)');
+        console.log('\nACCURACY COMPARISON (MAPE - Lower is Better)');
         console.log('-'.repeat(70));
         console.log('Rate\t\tGrowth\t\t\tDecay');
         console.log('\t\tApprox\tFetch\tDiff\tApprox\tFetch\tDiff');
@@ -220,7 +220,7 @@ class AccuracyComparisonAnalyzer {
         }
         
         // Performance comparison
-        console.log('\n📊 PERFORMANCE COMPARISON (Average CPU %)');
+        console.log('\nPERFORMANCE COMPARISON (Average CPU %)');
         console.log('-'.repeat(70));
         console.log('Rate\t\tGrowth\t\t\tDecay');
         console.log('\t\tApprox\tFetch\tDiff\tApprox\tFetch\tDiff');
@@ -242,7 +242,7 @@ class AccuracyComparisonAnalyzer {
     }
 
     generateInsights() {
-        console.log('\n🎯 KEY INSIGHTS');
+        console.log('\nKEY INSIGHTS');
         console.log('-'.repeat(40));
         
         // Find patterns in accuracy across rates
@@ -262,12 +262,12 @@ class AccuracyComparisonAnalyzer {
             
             if (approxMapes.length > 1) {
                 const trend = approxMapes[approxMapes.length - 1].mape > approxMapes[0].mape ? 'increasing' : 'decreasing';
-                insights.push(`📈 ${pattern} (Approximation): MAPE ${trend} with rate (${approxMapes[0].mape.toFixed(2)}% → ${approxMapes[approxMapes.length - 1].mape.toFixed(2)}%)`);
+                insights.push(`${pattern} (Approximation): MAPE ${trend} with rate (${approxMapes[0].mape.toFixed(2)}% → ${approxMapes[approxMapes.length - 1].mape.toFixed(2)}%)`);
             }
             
             if (fetchMapes.length > 1) {
                 const trend = fetchMapes[fetchMapes.length - 1].mape > fetchMapes[0].mape ? 'increasing' : 'decreasing';
-                insights.push(`📈 ${pattern} (Fetching): MAPE ${trend} with rate (${fetchMapes[0].mape.toFixed(2)}% → ${fetchMapes[fetchMapes.length - 1].mape.toFixed(2)}%)`);
+                insights.push(`${pattern} (Fetching): MAPE ${trend} with rate (${fetchMapes[0].mape.toFixed(2)}% → ${fetchMapes[fetchMapes.length - 1].mape.toFixed(2)}%)`);
             }
         }
         
@@ -306,7 +306,7 @@ class AccuracyComparisonAnalyzer {
         };
         
         fs.writeFileSync(outputPath, JSON.stringify(reportData, null, 2));
-        console.log(`\n💾 Detailed results saved to: ${outputPath}`);
+        console.log(`\nDetailed results saved to: ${outputPath}`);
         
         // Create CSV for plotting
         const csvPath = './logs/accuracy_comparison.csv';
@@ -326,18 +326,18 @@ class AccuracyComparisonAnalyzer {
         }
         
         fs.writeFileSync(csvPath, csvContent);
-        console.log(`📊 CSV summary saved to: ${csvPath}`);
+        console.log(`CSV summary saved to: ${csvPath}`);
     }
 
     run() {
-        console.log('🚀 Starting Accuracy Comparison Analysis\n');
+        console.log('Starting Accuracy Comparison Analysis\n');
         
         this.loadResults();
         this.generateComparisonReport();
         this.saveResults();
         
         console.log('\n✨ Analysis complete!');
-        console.log('\n📋 Summary:');
+        console.log('\nSummary:');
         console.log('- Compared approximation vs fetching approaches');
         console.log('- Analyzed accuracy across different exponential rates');
         console.log('- Generated performance comparison metrics');

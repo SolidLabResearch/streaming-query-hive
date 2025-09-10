@@ -173,28 +173,28 @@ function compareFrequency(frequency) {
     
     // Check if files exist
     if (!fs.existsSync(fetchingLogPath)) {
-        console.log(`❌ Fetching log not found: ${fetchingLogPath}`);
+        console.log(`Fetching log not found: ${fetchingLogPath}`);
         return null;
     }
     
     if (!fs.existsSync(approximationLogPath)) {
-        console.log(`❌ Approximation log not found: ${approximationLogPath}`);
+        console.log(`Approximation log not found: ${approximationLogPath}`);
         return null;
     }
     
-    console.log(`📊 Parsing ground truth (fetching): ${fetchingLogPath}`);
+    console.log(`Parsing ground truth (fetching): ${fetchingLogPath}`);
     const fetchingData = parseCSVFile(fetchingLogPath);
     
-    console.log(`📊 Parsing approximation data: ${approximationLogPath}`);
+    console.log(`Parsing approximation data: ${approximationLogPath}`);
     const approximationData = parseCSVFile(approximationLogPath);
     
     if (fetchingData.length === 0 || approximationData.length === 0) {
-        console.log(`❌ No data found for frequency ${frequency}`);
+        console.log(`No data found for frequency ${frequency}`);
         return null;
     }
     
-    console.log(`📈 Fetching data points: ${fetchingData.length}`);
-    console.log(`📈 Approximation data points: ${approximationData.length}`);
+    console.log(`Fetching data points: ${fetchingData.length}`);
+    console.log(`Approximation data points: ${approximationData.length}`);
     
     // Try different possible column names for values
     const possibleValueColumns = ['value', 'result', 'measurement', 'data', 'output'];
@@ -254,7 +254,7 @@ function compareFrequency(frequency) {
         }
     };
     
-    console.log(`📋 Results for ${frequency} Hz:`);
+    console.log(`Results for ${frequency} Hz:`);
     console.log(`   • Data points compared: ${results.dataPoints.compared}`);
     console.log(`   • MAPE (Mean Absolute Percentage Error): ${results.accuracy.mape}%`);
     console.log(`   • MAE (Mean Absolute Error): ${results.accuracy.mae}`);
@@ -268,7 +268,7 @@ function compareFrequency(frequency) {
  * Main execution function
  */
 function main() {
-    console.log('🔍 Accuracy Comparison: Approximation vs Fetching Client Side Approach');
+    console.log('Accuracy Comparison: Approximation vs Fetching Client Side Approach');
     console.log('=========================================================================');
     console.log('Using Fetching Client Side Approach as Ground Truth');
     console.log('Analyzing Complex Oscillation data across different frequencies\n');
@@ -283,7 +283,7 @@ function main() {
     }
     
     // Summary table
-    console.log('\n📊 SUMMARY TABLE');
+    console.log('\nSUMMARY TABLE');
     console.log('================');
     console.log('Freq(Hz) | Data Points | MAPE(%)  | MAE      | RMSE     | Correlation');
     console.log('---------|-------------|----------|----------|----------|------------');
@@ -300,7 +300,7 @@ function main() {
     }
     
     // Analysis insights
-    console.log('\n🎯 ANALYSIS INSIGHTS');
+    console.log('\nANALYSIS INSIGHTS');
     console.log('====================');
     
     const validResults = allResults.filter(r => r.accuracy.mape !== 'N/A');
@@ -313,9 +313,9 @@ function main() {
         const avgCorrelation = correlationValues.length > 0 ? 
             correlationValues.reduce((a, b) => a + b, 0) / correlationValues.length : null;
         
-        console.log(`📈 Average MAPE across all frequencies: ${avgMAPE.toFixed(4)}%`);
+        console.log(`Average MAPE across all frequencies: ${avgMAPE.toFixed(4)}%`);
         if (avgCorrelation !== null) {
-            console.log(`📈 Average correlation across all frequencies: ${avgCorrelation.toFixed(4)}`);
+            console.log(`Average correlation across all frequencies: ${avgCorrelation.toFixed(4)}`);
         }
         
         // Find best and worst performing frequencies
@@ -325,7 +325,7 @@ function main() {
         const worstFreq = validResults.find(r => parseFloat(r.accuracy.mape) === worstMAPE).frequency;
         
         console.log(`🏆 Best accuracy (lowest MAPE): ${bestFreq} Hz (${bestMAPE.toFixed(4)}%)`);
-        console.log(`⚠️  Worst accuracy (highest MAPE): ${worstFreq} Hz (${worstMAPE.toFixed(4)}%)`);
+        console.log(` Worst accuracy (highest MAPE): ${worstFreq} Hz (${worstMAPE.toFixed(4)}%)`);
         
         // Aliasing analysis
         const highFreqResults = validResults.filter(r => parseFloat(r.frequency) >= 1.5);
@@ -333,9 +333,9 @@ function main() {
             const highFreqMAPE = highFreqResults.map(r => parseFloat(r.accuracy.mape));
             const avgHighFreqMAPE = highFreqMAPE.reduce((a, b) => a + b, 0) / highFreqMAPE.length;
             
-            console.log(`🔄 High frequency (≥1.5 Hz) average MAPE: ${avgHighFreqMAPE.toFixed(4)}%`);
+            console.log(`High frequency (≥1.5 Hz) average MAPE: ${avgHighFreqMAPE.toFixed(4)}%`);
             if (avgHighFreqMAPE > avgMAPE) {
-                console.log(`⚠️  Approximation accuracy degrades at high frequencies (aliasing effect)`);
+                console.log(` Approximation accuracy degrades at high frequencies (aliasing effect)`);
             }
         }
     }
@@ -349,9 +349,9 @@ function main() {
     }
     
     fs.writeFileSync(csvFilePath, csvContent);
-    console.log(`\n💾 Results exported to: ${csvFilePath}`);
+    console.log(`\nResults exported to: ${csvFilePath}`);
     
-    console.log('\n✅ Accuracy comparison completed!');
+    console.log('\nAccuracy comparison completed!');
 }
 
 // Execute the analysis

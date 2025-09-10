@@ -103,22 +103,22 @@ def create_focused_comparison():
     
     summary_text = f"""COMPARISON SUMMARY
     
-📊 DATASET OVERVIEW
+DATASET OVERVIEW
     • Total Patterns: {total_patterns}
     • Challenging: {len(challenging)}
     • Favorable: {len(favorable)}
     
-🎯 ACCURACY PERFORMANCE
+ACCURACY PERFORMANCE
     • Overall Average: {overall_avg_accuracy:.2f}%
     • Best Accuracy: {min_accuracy:.3f}%
     • Worst Accuracy: {max_accuracy:.2f}%
     
-📈 ACCURACY DISTRIBUTION
+ACCURACY DISTRIBUTION
     • Perfect (≤0.01%): {perfect_accuracy}/{total_patterns} patterns
     • Near-perfect (≤0.1%): {near_perfect}/{total_patterns} patterns  
     • Good (≤5%): {good_accuracy}/{total_patterns} patterns
     
-⚙️ RESULT GENERATION
+RESULT GENERATION
     • Average Results: {avg_result_count:.1f} per pattern
     • Expected: ~2 results per pattern
     • Range: {min(result_counts)}-{max(result_counts)} results
@@ -145,7 +145,7 @@ def create_focused_comparison():
     plt.savefig('focused_comparison_analysis.png', dpi=300, bbox_inches='tight')
     plt.show()
     
-    print("✅ Focused comparison visualization saved as 'focused_comparison_analysis.png'")
+    print("Focused comparison visualization saved as 'focused_comparison_analysis.png'")
 
 if __name__ == "__main__":
     create_focused_comparison()

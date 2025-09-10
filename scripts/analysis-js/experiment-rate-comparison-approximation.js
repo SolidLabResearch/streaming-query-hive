@@ -87,9 +87,9 @@ async function runSingleTest(rate, pattern, iteration = 1) {
         approach.kill();
         
         if (code === 0) {
-          console.log(`✅ ${runLabel} completed successfully`);
+          console.log(`${runLabel} completed successfully`);
         } else {
-          console.log(`❌ ${runLabel} finished with exit code ${code}`);
+          console.log(`${runLabel} finished with exit code ${code}`);
         }
         
         resolve(code);
@@ -146,9 +146,9 @@ async function runSingleTest(rate, pattern, iteration = 1) {
 }
 
 async function runAllRateTests() {
-  console.log('🚀 Starting Exponential Rate Comparison - Approximation Approach');
-  console.log(`📊 Testing rates: ${RATE_TEST_CONFIG.rates.join(', ')}`);
-  console.log(`📈 Testing patterns: ${RATE_TEST_CONFIG.patterns.join(', ')}`);
+  console.log('Starting Exponential Rate Comparison - Approximation Approach');
+  console.log(`Testing rates: ${RATE_TEST_CONFIG.rates.join(', ')}`);
+  console.log(`Testing patterns: ${RATE_TEST_CONFIG.patterns.join(', ')}`);
   console.log(`📂 Results will be logged to: ${LOGS_DIR}`);
 
   const results = [];
@@ -162,7 +162,7 @@ async function runAllRateTests() {
           const result = await runSingleTest(rate, pattern, iteration);
           results.push(result);
           completedTests++;
-          console.log(`📊 Progress: ${completedTests}/${totalTests} tests completed`);
+          console.log(`Progress: ${completedTests}/${totalTests} tests completed`);
           
           // Small delay between tests
           await new Promise(resolve => setTimeout(resolve, 2000));
@@ -191,7 +191,7 @@ async function runSpecificRate(rate) {
     throw new Error(`Invalid rate: ${rate}. Valid rates: ${RATE_TEST_CONFIG.rates.join(', ')}`);
   }
 
-  console.log(`🎯 Testing Approximation Approach for rate: ${rate}`);
+  console.log(`Testing Approximation Approach for rate: ${rate}`);
   
   const results = [];
   for (const pattern of RATE_TEST_CONFIG.patterns) {
@@ -222,7 +222,7 @@ async function runSpecificTest(pattern, rate) {
     throw new Error(`Invalid pattern: ${pattern}. Valid patterns: ${RATE_TEST_CONFIG.patterns.join(', ')}`);
   }
 
-  console.log(`🎯 Testing Approximation Approach: ${pattern} with rate ${rate}`);
+  console.log(`Testing Approximation Approach: ${pattern} with rate ${rate}`);
   
   try {
     const result = await runSingleTest(rate, pattern, 1);
@@ -244,18 +244,18 @@ async function runSpecificTest(pattern, rate) {
 
 function generateSummaryReport(results) {
   console.log('\n' + '='.repeat(80));
-  console.log('📋 APPROXIMATION APPROACH - RATE COMPARISON SUMMARY');
+  console.log('APPROXIMATION APPROACH - RATE COMPARISON SUMMARY');
   console.log('='.repeat(80));
 
   const successful = results.filter(r => r.success);
   const failed = results.filter(r => !r.success);
 
-  console.log(`📊 Total Tests: ${results.length}`);
-  console.log(`✅ Successful: ${successful.length}`);
-  console.log(`❌ Failed: ${failed.length}`);
+  console.log(`Total Tests: ${results.length}`);
+  console.log(`Successful: ${successful.length}`);
+  console.log(`Failed: ${failed.length}`);
 
   if (successful.length > 0) {
-    console.log('\n📈 Successful Tests:');
+    console.log('\nSuccessful Tests:');
     console.log('Rate    | Pattern           | Duration');
     console.log('--------|-------------------|----------');
     
@@ -269,7 +269,7 @@ function generateSummaryReport(results) {
   }
 
   if (failed.length > 0) {
-    console.log('\n❌ Failed Tests:');
+    console.log('\nFailed Tests:');
     failed.forEach(result => {
       console.log(`  ${result.pattern} rate ${result.rate}: ${result.error}`);
     });
@@ -288,7 +288,7 @@ function generateSummaryReport(results) {
     }
   }, null, 2));
 
-  console.log(`\n📄 Detailed report saved to: ${reportPath}`);
+  console.log(`\nDetailed report saved to: ${reportPath}`);
   console.log('='.repeat(80));
 }
 

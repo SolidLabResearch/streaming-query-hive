@@ -56,7 +56,7 @@ class RateComparisonAccuracyAnalyzer {
     }
 
     analyzeAllResults() {
-        console.log('📊 Analyzing Rate Comparison Results');
+        console.log('Analyzing Rate Comparison Results');
         console.log('=' .repeat(60));
 
         const analysisResults = {};
@@ -87,7 +87,7 @@ class RateComparisonAccuracyAnalyzer {
     }
 
     generateAccuracyComparison(analysisResults) {
-        console.log('\n📈 ACCURACY COMPARISON TABLE');
+        console.log('\nACCURACY COMPARISON TABLE');
         console.log('=' .repeat(100));
 
         // Header
@@ -134,11 +134,11 @@ class RateComparisonAccuracyAnalyzer {
     }
 
     generateRateTrendAnalysis(analysisResults) {
-        console.log('\n📊 RATE TREND ANALYSIS');
+        console.log('\nRATE TREND ANALYSIS');
         console.log('=' .repeat(80));
 
         for (const pattern of this.patterns) {
-            console.log(`\n🔍 ${pattern.toUpperCase()} PATTERN:`);
+            console.log(`\n${pattern.toUpperCase()} PATTERN:`);
             console.log('-'.repeat(50));
 
             const trendData = [];
@@ -182,8 +182,8 @@ class RateComparisonAccuracyAnalyzer {
                 const approxTrend = this.calculateTrend(trendData.map(d => d.approxAccuracy));
                 const fetchingTrend = this.calculateTrend(trendData.map(d => d.fetchingAccuracy));
                 
-                console.log(`\n📈 Approximation trend: ${approxTrend}`);
-                console.log(`📈 Fetching trend: ${fetchingTrend}`);
+                console.log(`\nApproximation trend: ${approxTrend}`);
+                console.log(`Fetching trend: ${fetchingTrend}`);
             } else {
                 console.log('No complete data available for trend analysis');
             }
@@ -230,7 +230,7 @@ class RateComparisonAccuracyAnalyzer {
         }
         
         fs.writeFileSync(csvPath, csvRows.join('\n'));
-        console.log(`\n📄 CSV report generated: ${csvPath}`);
+        console.log(`\nCSV report generated: ${csvPath}`);
     }
 
     async run() {
@@ -240,8 +240,8 @@ class RateComparisonAccuracyAnalyzer {
         this.generateRateTrendAnalysis(analysisResults);
         this.generateCSVReport(analysisResults);
         
-        console.log('\n✅ Analysis complete!');
-        console.log('\n🎯 Key Insights:');
+        console.log('\nAnalysis complete!');
+        console.log('\nKey Insights:');
         console.log('1. Compare accuracy degradation as rate increases');
         console.log('2. Identify the rate threshold where approximation becomes unreliable');
         console.log('3. Check if extreme rates break the plateau effect discovered earlier');

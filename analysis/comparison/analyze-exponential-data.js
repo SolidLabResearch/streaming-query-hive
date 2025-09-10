@@ -13,7 +13,7 @@ function analyzePattern(filePath, patternName) {
         const data = fs.readFileSync(filePath, 'utf8');
         const lines = data.split('\n').filter(line => line.trim());
         
-        console.log(`\n📊 Analyzing ${patternName}:`);
+        console.log(`\nAnalyzing ${patternName}:`);
         console.log(`   Data file: ${filePath}`);
         console.log(`   Total lines: ${lines.length}`);
         
@@ -44,7 +44,7 @@ function analyzePattern(filePath, patternName) {
             const durationMs = endTime - startTime;
             const durationS = durationMs / 1000;
             
-            console.log(`   📈 Value Analysis:`);
+            console.log(`   Value Analysis:`);
             console.log(`      Start: ${startValue.toFixed(6)}`);
             console.log(`      End: ${endValue.toFixed(6)}`);
             console.log(`      Min: ${minValue.toFixed(6)}`);
@@ -58,7 +58,7 @@ function analyzePattern(filePath, patternName) {
             
             // Calculate rate of change over different windows
             const windowSizes = [10, 50, 100];
-            console.log(`   📊 Rate of Change Analysis:`);
+            console.log(`   Rate of Change Analysis:`);
             
             windowSizes.forEach(windowSize => {
                 if (values.length >= windowSize) {
@@ -72,7 +72,7 @@ function analyzePattern(filePath, patternName) {
             });
             
             // Show sample values
-            console.log(`   🔍 Sample Values:`);
+            console.log(`   Sample Values:`);
             const sampleIndices = [0, Math.floor(values.length * 0.25), Math.floor(values.length * 0.5), 
                                    Math.floor(values.length * 0.75), values.length - 1];
             sampleIndices.forEach((idx, i) => {
@@ -92,13 +92,13 @@ function analyzePattern(filePath, patternName) {
             };
         }
     } catch (error) {
-        console.error(`❌ Error analyzing ${patternName}: ${error.message}`);
+        console.error(`Error analyzing ${patternName}: ${error.message}`);
         return null;
     }
 }
 
 function main() {
-    console.log('🔍 EXPONENTIAL PATTERN DATA ANALYSIS');
+    console.log('EXPONENTIAL PATTERN DATA ANALYSIS');
     console.log('=' * 50);
     
     const basePath = '/Users/kushbisen/Code/streaming-query-hive/src/streamer/data/approximation_test/challenging';
@@ -118,7 +118,7 @@ function main() {
     });
     
     // Summary comparison
-    console.log('\n📋 SUMMARY COMPARISON');
+    console.log('\nSUMMARY COMPARISON');
     console.log('=' * 50);
     
     results.forEach(result => {
@@ -128,7 +128,7 @@ function main() {
         console.log(`  Rate: ${(result.change / result.duration).toFixed(6)} units/second`);
     });
     
-    console.log('\n🎯 Expected Impact on Approximation Accuracy:');
+    console.log('\nExpected Impact on Approximation Accuracy:');
     results.forEach(result => {
         let impact = 'Unknown';
         if (Math.abs(result.percentChange) < 5) {

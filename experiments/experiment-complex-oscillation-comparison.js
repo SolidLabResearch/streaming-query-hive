@@ -30,7 +30,7 @@ class ComplexOscillationComparisonExperiment {
         const datasetName = `${this.oscillationType}_freq_${frequency}`;
         const approachName = approach === 'approximation' ? 'Approximation' : 'Fetching Client Side';
         
-        console.log(`\n🎵 Testing ${approachName} for Complex Oscillation at ${frequency} Hz...`);
+        console.log(`\nTesting ${approachName} for Complex Oscillation at ${frequency} Hz...`);
         console.log(`   Dataset: ${datasetName}`);
         console.log(`   Nyquist ratio: ${(frequency / 2.0).toFixed(2)}x`);
         
@@ -130,7 +130,7 @@ class ComplexOscillationComparisonExperiment {
                     }
                     
                     if (code === 0) {
-                        console.log(`✅ Completed ${approachName} for ${frequency} Hz`);
+                        console.log(`Completed ${approachName} for ${frequency} Hz`);
                         resolve({ 
                             success: true, 
                             approach,
@@ -139,7 +139,7 @@ class ComplexOscillationComparisonExperiment {
                             logPath: testLogDir
                         });
                     } else {
-                        console.error(`❌ Failed ${approachName} for ${frequency} Hz (exit code: ${code})`);
+                        console.error(`Failed ${approachName} for ${frequency} Hz (exit code: ${code})`);
                         resolve({ 
                             success: false, 
                             approach,
@@ -154,7 +154,7 @@ class ComplexOscillationComparisonExperiment {
                 publisher.on('error', (error) => {
                     clearTimeout(timeout);
                     approachProcess.kill();
-                    console.error(`❌ Publisher error in ${approachName} for ${frequency} Hz:`, error.message);
+                    console.error(`Publisher error in ${approachName} for ${frequency} Hz:`, error.message);
                     resolve({ 
                         success: false, 
                         approach,
@@ -167,7 +167,7 @@ class ComplexOscillationComparisonExperiment {
             }, 2000); // 2 second delay before starting publisher
 
             approachProcess.on('error', (error) => {
-                console.error(`❌ Approach error in ${approachName} for ${frequency} Hz:`, error.message);
+                console.error(`Approach error in ${approachName} for ${frequency} Hz:`, error.message);
                 resolve({ 
                     success: false, 
                     approach,
@@ -181,7 +181,7 @@ class ComplexOscillationComparisonExperiment {
     }
 
     async runAllTests() {
-        console.log('🎵 COMPLEX OSCILLATION FREQUENCY COMPARISON EXPERIMENT');
+        console.log('COMPLEX OSCILLATION FREQUENCY COMPARISON EXPERIMENT');
         console.log('='.repeat(70));
         console.log(`Testing Complex Oscillation across ${FREQUENCIES.length} frequencies`);
         console.log(`Approaches: Approximation vs Fetching Client Side`);
@@ -233,7 +233,7 @@ class ComplexOscillationComparisonExperiment {
         fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
         
         // Print final summary
-        console.log('\n📊 EXPERIMENT SUMMARY');
+        console.log('\nEXPERIMENT SUMMARY');
         console.log('='.repeat(70));
         console.log(`Total tests: ${summary.config.totalTests}`);
         console.log(`Successful: ${summary.summary.successful}`);
@@ -247,11 +247,11 @@ class ComplexOscillationComparisonExperiment {
             const fetchingResult = freqResults.find(r => r.approach === 'fetching');
             
             console.log(`  ${freq} Hz:`);
-            console.log(`    Approximation: ${approxResult?.success ? '✅' : '❌'}`);
-            console.log(`    Fetching:      ${fetchingResult?.success ? '✅' : '❌'}`);
+            console.log(`    Approximation: ${approxResult?.success ? '' : ''}`);
+            console.log(`    Fetching:      ${fetchingResult?.success ? '' : ''}`);
         }
         
-        console.log(`\n📋 Summary saved to: ${summaryPath}`);
+        console.log(`\nSummary saved to: ${summaryPath}`);
         console.log(`📂 Detailed logs in: ${this.logDir}`);
         
         return summary;
@@ -264,7 +264,7 @@ async function main() {
     
     try {
         await experiment.runAllTests();
-        console.log('\n🎉 Complex oscillation comparison experiment completed successfully!');
+        console.log('\nComplex oscillation comparison experiment completed successfully!');
     } catch (error) {
         console.error('\n💥 Experiment failed:', error);
         process.exit(1);
