@@ -2,7 +2,7 @@ const { spawn, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const RUNS = 35;
+const RUNS = 1;
 const LOGS_DIR = 'logs/streaming-query-hive';
 const APPROACH_CMD = ['node', ['dist/approaches/StreamingQueryChunkedApproachOrchestrator.js']];
 const PUBLISH_CMD = ['node', ['dist/streamer/src/publish.js']];
