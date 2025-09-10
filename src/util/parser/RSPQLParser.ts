@@ -49,8 +49,10 @@ export class RSPQLParser {
                 }
             } else {
                 let sparqlLine = trimmed_line;
+                // Replace WINDOW ... { with GRAPH ... { for RSP-QL compatibility
                 if (sparqlLine.startsWith("WINDOW")) {
-                    sparqlLine = sparqlLine.replace("WINDOW", "GRAPH");
+                    // This handles cases like: WINDOW :w1 { ... }
+                    sparqlLine = sparqlLine.replace(/^WINDOW\s*(:\w+)\s*\{/, "GRAPH $1 {");
                 }
                 if (sparqlLine.startsWith("PREFIX")) {
                     const regexp = /PREFIX +([^:]*): +<([^>]+)>/g;
@@ -63,6 +65,10 @@ export class RSPQLParser {
             }
         });
         parsed.sparql = sparqlLines.join("\n");
+        // Check for balanced braces before parsing
+        if (!this.hasBalancedBraces(parsed.sparql)) {
+            throw new Error("SPARQL query has unbalanced braces. Please check your query syntax.");
+        }
         this.parse_sparql_query(parsed.sparql, parsed);
         return parsed;
     }
@@ -107,6 +113,21 @@ export class RSPQLParser {
              //    parsed.aggregation_function = parsed_sparql_query.variables[i].expression.aggregation;
             }
         }
+    }
+
+    /**
+     * Checks if a SPARQL query has balanced curly braces.
+     * @param {string} query - The SPARQL query string.
+     * @returns {boolean} - True if balanced, false otherwise.
+     */
+    hasBalancedBraces(query: string): boolean {
+        let count = 0;
+        for (const char of query) {
+            if (char === '{') count++;
+            if (char === '}') count--;
+            if (count < 0) return false;
+        }
+        return count === 0;
     }
 }
 /**

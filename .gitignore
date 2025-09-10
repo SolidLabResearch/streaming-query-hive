@@ -109,3 +109,7 @@ approximation_log.csv
 approximation_resource_usage.csv
 replayer-log.csv
 streaming_query_chunk_aggregator_log.csv
+approximation_approach_log.csv
+.gitignore
+streaming_query_approximation_approach_log.csv
+approximation_approach_resource_usage.csv

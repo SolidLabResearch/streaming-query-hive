@@ -11,16 +11,18 @@ export class Orchestrator {
     private subQueriesToRun: string[];
     private registeredQuery: string;
     private beeKeeper: BeeKeeper;
+    private operatorType: string;
     private http_server: HTTPServer;
 
     /**
      *
      */
-    constructor() {
+    constructor(operatorType: string) {
         this.subQueriesToRun = [];
         this.registeredQuery = "";
         this.beeKeeper = new BeeKeeper();
         this.http_server = new HTTPServer(config.port, console);
+        this.operatorType = operatorType;
         console.log(`HTTP server has started on port ${config.port}`);
     }
 
@@ -31,6 +33,7 @@ export class Orchestrator {
     addSubQuery(query: string): void {
         this.subQueriesToRun.push(query);
         const query_hash = hash_string_md5(query);
+
         const queryAgent = new RSPAgent(query, `chunked/${query_hash}`);
         queryAgent.process_streams()
             .then(() => {
@@ -40,7 +43,7 @@ export class Orchestrator {
             .catch((error: Error) => {
                 console.error(`Error processing sub-query "${query}":`, error);
             }
-        );
+            );
         console.log(`Sub-query added: ${query}`);
     }
 
@@ -92,7 +95,8 @@ export class Orchestrator {
             return;
         }
         this.subQueriesToRun.forEach(query => {
-            const queryAgent = new RSPAgent(query, "");
+            const hash = hash_string_md5(query);
+            const queryAgent = new RSPAgent(query, `chunked/${hash}`);
             queryAgent.process_streams()
                 .then(() => {
                     console.log(`Starting query: ${query}`);
@@ -112,7 +116,7 @@ export class Orchestrator {
             return;
         }
 
-        this.beeKeeper.executeQuery(this.registeredQuery, "output");
+        this.beeKeeper.executeQuery(this.registeredQuery, "output", this.operatorType, this.subQueriesToRun)
         console.log(`Running registered query: ${this.registeredQuery}`);
 
     }

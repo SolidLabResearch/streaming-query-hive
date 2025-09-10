@@ -24,6 +24,8 @@ export class StreamToMQTT {
     private topic_to_publish: string;
     private sort_subject_length: number = 0;
     private frequency: number;
+    private successfulPublishes: number = 0;
+    private failedPublishes: number = 0;
 
     /**
      *
@@ -32,13 +34,18 @@ export class StreamToMQTT {
      * @param file_location
      * @param topic_to_publish
      */
-    constructor(mqtt_broker: string, frequency: number, file_location: string, topic_to_publish: string) {
+    constructor(mqtt_broker: string, frequency: number, file_location: string, topic_to_publish: string, mqttOptions?: mqtt.IClientOptions) {
         this.store = new N3.Store();
         this.stream_consumer = new StreamConsumer(this.store);
         this.file_location = file_location;
         this.frequency = frequency;
         this.topic_to_publish = topic_to_publish;
-        this.mqtt_client = mqtt.connect(mqtt_broker);
+        // Set clean:false for persistent session, allow custom clientId
+        if (mqttOptions) {
+            this.mqtt_client = mqtt.connect(mqtt_broker, mqttOptions);
+        } else {
+            this.mqtt_client = mqtt.connect(mqtt_broker, { clean: false });
+        }
         this.initialize_promise = this.initialize();
     }
 
@@ -145,7 +152,25 @@ export class StreamToMQTT {
             await this.sleep(delay);
         }
 
+        // Wait a moment for all async publishes to complete
+        await this.sleep(500);
         console.log('All observations published.');
+        const summary = `Summary: Intended: ${this.sort_subject_length}, Successful: ${this.successfulPublishes}, Failed: ${this.failedPublishes}`;
+        console.log(summary);
+        // Write summary to replayer-log.csv
+        try {
+            const logPath = path.resolve(process.cwd(), 'replayer-log.csv');
+            const header = 'timestamp,intended,successful,failed\n';
+            const line = `${Date.now()},${this.sort_subject_length},${this.successfulPublishes},${this.failedPublishes}\n`;
+            let writeHeader = false;
+            if (!fs.existsSync(logPath)) writeHeader = true;
+            const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+            if (writeHeader) logStream.write(header);
+            logStream.write(line);
+            logStream.end();
+        } catch (err) {
+            console.error('Error writing summary to replayer-log.csv:', err);
+        }
     }
 
     /**
@@ -183,13 +208,20 @@ export class StreamToMQTT {
             const data = await this.storeToString(subStore);
 
             if (data && data.trim() !== '') {
-                this.mqtt_client.publish(this.topic_to_publish, data);
-
-                console.log(`Published observation: ${id} at ${this.file_location}`);
+                this.mqtt_client.publish(this.topic_to_publish, data, { qos: 2 }, (err: any) => {
+                    if (err) {
+                        this.failedPublishes++;
+                        console.error('Error publishing observation with QoS 2:', err);
+                    } else {
+                        this.successfulPublishes++;
+                        console.log(`Published observation: ${id} at ${this.file_location} with QoS 2`);
+                    }
+                });
                 this.number_of_publish++;
                 this.observation_pointer++;
             }
         } catch (error) {
+            this.failedPublishes++;
             console.error('Error publishing observation:', error);
         }
     }

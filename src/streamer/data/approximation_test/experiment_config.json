@@ -1,0 +1,44 @@
+{
+  "challenging_patterns": [
+    "exponential_growth",
+    "exponential_decay",
+    "extreme_exponential_growth",
+    "extreme_exponential_decay",
+    "logarithmic",
+    "sine_wave",
+    "high_frequency_oscillation",
+    "chaotic_oscillation",
+    "step_function",
+    "spike_pattern",
+    "high_variance_random"
+  ],
+  "favorable_patterns": [
+    "linear_increasing",
+    "linear_decreasing",
+    "smooth_polynomial",
+    "gentle_sine",
+    "low_variance_random",
+    "constant_value",
+    "gradual_trend"
+  ],
+  "data_paths": {
+    "challenging_exponential_growth": "approximation_test/challenging/exponential_growth",
+    "challenging_exponential_decay": "approximation_test/challenging/exponential_decay",
+    "challenging_extreme_exponential_growth": "approximation_test/challenging/extreme_exponential_growth",
+    "challenging_extreme_exponential_decay": "approximation_test/challenging/extreme_exponential_decay",
+    "challenging_logarithmic": "approximation_test/challenging/logarithmic",
+    "challenging_sine_wave": "approximation_test/challenging/sine_wave",
+    "challenging_high_frequency_oscillation": "approximation_test/challenging/high_frequency_oscillation",
+    "challenging_chaotic_oscillation": "approximation_test/challenging/chaotic_oscillation",
+    "challenging_step_function": "approximation_test/challenging/step_function",
+    "challenging_spike_pattern": "approximation_test/challenging/spike_pattern",
+    "challenging_high_variance_random": "approximation_test/challenging/high_variance_random",
+    "favorable_linear_increasing": "approximation_test/favorable/linear_increasing",
+    "favorable_linear_decreasing": "approximation_test/favorable/linear_decreasing",
+    "favorable_smooth_polynomial": "approximation_test/favorable/smooth_polynomial",
+    "favorable_gentle_sine": "approximation_test/favorable/gentle_sine",
+    "favorable_low_variance_random": "approximation_test/favorable/low_variance_random",
+    "favorable_constant_value": "approximation_test/favorable/constant_value",
+    "favorable_gradual_trend": "approximation_test/favorable/gradual_trend"
+  }
+}
