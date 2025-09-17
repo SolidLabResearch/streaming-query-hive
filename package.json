@@ -10,7 +10,14 @@
         "test:watch": "jest --watch",
         "lint:ts": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0",
         "lint:ts:fix": "eslint . --ext ts --report-unused-disable-directives --max-warnings 0 --fix",
-        "start:http:server": "npx ts-node src/startHTTPServer.ts"
+        "start:http:server": "npx ts-node src/startHTTPServer.ts",
+        "experiment:setup": "npx ts-node tools/experiments/setup-frequency-experiment.ts",
+        "experiment:quick-test": "npx ts-node tools/experiments/quick-test.ts",
+        "experiment:test-mqtt": "npx ts-node tools/experiments/test-mqtt-infrastructure.ts",
+        "experiment:run": "npx ts-node tools/experiments/run-frequency-experiment.ts",
+        "experiment:run-realworld": "npx ts-node tools/experiments/run-realworld-frequency-experiment.ts",
+        "experiment:analyze": "npx ts-node tools/experiments/analyze-frequency-results.ts",
+        "experiment:independent": "npx ts-node tools/experiments/experiment-evaluation-independent-stream-processing.ts"
     },
     "keywords": [],
     "author": "Kushagra Singh Bisen",

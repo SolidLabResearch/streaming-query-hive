@@ -1,0 +1,46 @@
+FREQUENCY EXPERIMENT ANALYSIS SUMMARY
+==================================================
+
+Experiment Date: 2025-09-17T08:16:24.175Z
+Total Results: 240
+Success Rate: 0.0%
+
+APPROACH PERFORMANCE OVERVIEW
+------------------------------
+
+FETCHING-CLIENT-SIDE:
+  Latency: 0.02ms ± 0.01ms
+  Memory: 0.00MB ± 0.00MB
+  Accuracy: 0.00% ± 0.00%
+  Throughput: 0.00 obs/sec
+
+STREAMING-QUERY-HIVE:
+  Latency: 0.07ms ± 0.33ms
+  Memory: 0.00MB ± 0.00MB
+  Accuracy: 0.00% ± 0.00%
+  Throughput: 0.00 obs/sec
+
+CHUNKED-APPROACH:
+  Latency: 0.03ms ± 0.03ms
+  Memory: 0.00MB ± 0.00MB
+  Accuracy: 0.00% ± 0.00%
+  Throughput: 0.00 obs/sec
+
+APPROXIMATION-APPROACH:
+  Latency: 0.02ms ± 0.01ms
+  Memory: 0.00MB ± 0.00MB
+  Accuracy: 0.00% ± 0.00%
+  Throughput: 0.00 obs/sec
+
+BEST PERFORMANCE
+----------------
+Lowest Latency:  (Infinityms)
+Lowest Memory:  (InfinityMB)
+Highest Accuracy:  (-1.00%)
+Highest Throughput:  (-1.00 obs/sec)
+
+RECOMMENDATIONS
+---------------
+• ⚠️  Success rate is 0.0%. Investigate failed experiments.
+• 🏆 Best overall performance: approximation-approach (0.02ms avg latency)
+• 📊 Test completed across 6 frequencies and 2 device types
