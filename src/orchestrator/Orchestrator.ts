@@ -5,7 +5,9 @@ import config from '../config/httpServerConfig.json';
 import { hash_string_md5 } from "../util/Util";
 
 /**
- *
+ * The orchestrator class is responsible for managing and executing the 
+ * registered query and its associated sub-queries. It maintains a list of the 
+ * sub-queries which are to be re-used by the registered query. 
  */
 export class Orchestrator {
     private subQueriesToRun: string[];
@@ -15,7 +17,8 @@ export class Orchestrator {
     private http_server: HTTPServer;
 
     /**
-     *
+     * Constructor for the Orchestrator class.
+     * @param operatorType The type of operator to be used in the orchestrator.
      */
     constructor(operatorType: string) {
         this.subQueriesToRun = [];
@@ -27,8 +30,9 @@ export class Orchestrator {
     }
 
     /**
-     *
-     * @param query
+     * Adds a sub-query to the orchestrator.
+     * @param {string} query - The sub-query to add.
+     * @return {void} - No return value.
      */
     addSubQuery(query: string): void {
         this.subQueriesToRun.push(query);
@@ -48,23 +52,26 @@ export class Orchestrator {
     }
 
     /**
-     *
-     * @param query
+     * Deletes a sub-query from the orchestrator.
+     * @param {string} query - The sub-query to delete.
+     * @returns {void} - No return value.
      */
     deleteSubQuery(query: string): void {
         this.subQueriesToRun = this.subQueriesToRun.filter(q => q !== query);
     }
 
     /**
-     *
+     * Gets the list of sub-queries.
+     * @returns {string[]} - The list of sub-queries.
      */
     getSubQueries(): string[] {
         return this.subQueriesToRun;
     }
 
     /**
-     *
-     * @param query
+     * Registers a query with the orchestrator.
+     * @param {string} query - The query to register with the orchestrator.
+     * @return {void} - No return value.
      */
     registerQuery(query: string): void {
         this.registeredQuery = query;
@@ -72,22 +79,24 @@ export class Orchestrator {
     }
 
     /**
-     *
+     * Gets the registered query.
+     * @returns {string} - The registered query.
      */
     getRegisteredQuery(): string {
         return this.registeredQuery;
     }
 
     /**
-     *
+     * Clears all sub-queries from the orchestrator.
+     * @returns {void} - No return value.
      */
     clearSubQueries(): void {
         this.subQueriesToRun = [];
-        console.log("Cleared all sub-queries.");
     }
 
     /**
-     *
+     * Runs all sub-queries managed by the orchestrator.
+     * @returns {void} - No return value.
      */
     runSubQueries(): void {
         if (this.subQueriesToRun.length === 0) {
@@ -108,7 +117,9 @@ export class Orchestrator {
     }
 
     /**
-     *
+     * Runs the registered query managed by the orchestrator.
+     * Executes the registered query using the BeeKeeper service.
+     * @returns {void} - No return value.
      */
     runRegisteredQuery(): void {
         if (this.registeredQuery === "") {
@@ -118,6 +129,5 @@ export class Orchestrator {
 
         this.beeKeeper.executeQuery(this.registeredQuery, "output", this.operatorType, this.subQueriesToRun)
         console.log(`Running registered query: ${this.registeredQuery}`);
-
     }
 }

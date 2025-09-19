@@ -2,7 +2,7 @@ import { RSPAgent } from "../agent/RSPAgent";
 import { BeeKeeper } from "../services/BeeKeeper";
 import { HTTPServer } from "../services/server/HTTPServer";
 import { HiveScoutBeeWrapper } from "../services/HiveScoutBee";
-import { ApproachRecommendation } from "../util/Types";
+import { ApproachRecommendation, AnalysisSummary } from "../util/Types";
 import config from '../config/httpServerConfig.json';
 import { hash_string_md5 } from "../util/Util";
 
@@ -24,6 +24,13 @@ export class IntelligentOrchestrator {
     private manualApproach: string | null = null;
     private analysisMode: 'automatic' | 'manual' | 'hybrid' = 'automatic';
 
+
+    /**
+     * Creates an instance of IntelligentOrchestrator.
+     * @param {string} operatorType - The default operator type to use.
+     * @param {boolean} [enableStreamAnalysis=true] - Whether to enable stream analysis for approach selection or not.
+     * @memberof IntelligentOrchestrator
+     */
     constructor(operatorType: string, enableStreamAnalysis: boolean = true) {
         this.subQueriesToRun = [];
         this.registeredQuery = "";
@@ -40,7 +47,8 @@ export class IntelligentOrchestrator {
 
     /**
      * Set analysis mode for approach selection
-     * @param mode - 'automatic' for stream analysis, 'manual' for specified approach, 'hybrid' for both
+     * @param { 'automatic' | 'manual' | 'hybrid' } mode - 'automatic' for stream analysis, 'manual' for specified approach, 'hybrid' for both
+     * @returns {void} - No return value.
      */
     setAnalysisMode(mode: 'automatic' | 'manual' | 'hybrid'): void {
         this.analysisMode = mode;
@@ -49,15 +57,17 @@ export class IntelligentOrchestrator {
 
     /**
      * Set manual approach to use (only effective in 'manual' or 'hybrid' mode)
-     * @param approach - The approach to use manually
+     * @param { 'approximation-approach' | 'fetching-client-side' | 'chunked-approach' | 'streaming-query-hive' | 'default' } approach - The approach to use manually for query execution
+     * @returns {void} - No return value.
      */
     setManualApproach(approach: 'approximation-approach' | 'fetching-client-side' | 'chunked-approach' | 'streaming-query-hive' | 'default'): void {
         this.manualApproach = approach;
         console.log(`Manual approach set to: ${approach}`);
     }
 
-    /**
+    /** 
      * Get current analysis mode
+     * @return { 'automatic' | 'manual' | 'hybrid' } - The current analysis mode being used for approach selection for query execution
      */
     getAnalysisMode(): 'automatic' | 'manual' | 'hybrid' {
         return this.analysisMode;
@@ -65,13 +75,16 @@ export class IntelligentOrchestrator {
 
     /**
      * Get current manual approach (if set)
+     * @return {string | null} - The current manual approach set, or null if none is set
      */
     getManualApproach(): string | null {
         return this.manualApproach;
     }
 
     /**
-     * Toggle stream analysis on/off
+     * Enable or disable stream analysis for approach selection
+     * @param {boolean} enabled - True to enable stream analysis, false to disable
+     * @returns {void} - No return value.
      */
     toggleStreamAnalysis(enabled: boolean): void {
         this.streamAnalysisEnabled = enabled;
@@ -79,7 +92,9 @@ export class IntelligentOrchestrator {
     }
 
     /**
-     * Add sub-query with optional stream analysis
+     * Adds a sub-query to the orchestrator.
+     * @param {string} query - The sub-query to add.
+     * @returns {void} - No return value.
      */
     addSubQuery(query: string): void {
         this.subQueriesToRun.push(query);
@@ -97,10 +112,13 @@ export class IntelligentOrchestrator {
 
     /**
      * Register output query with intelligent approach selection
+     * @param {string} query - The output query to register with the orchestrator.
+     * @returns {void} - No return value.
      */
     registerOutputQuery(query: string): void {
         this.registeredQuery = query;
         console.log(`Registered output query: ${query}`);
+
         
         if (this.streamAnalysisEnabled) {
             console.log(`Stream analysis will be performed to optimize approach selection`);
@@ -109,6 +127,10 @@ export class IntelligentOrchestrator {
 
     /**
      * Analyze stream data and add to scout bee analysis window
+     * @param {number} timestamp - The timestamp of the data point.
+     * @param {number} value - The value of the data point.
+     * @param {string} topic - The topic/source of the data point.
+     * @returns {void} - No return value.
      */
     analyzeStreamData(timestamp: number, value: number, topic: string): void {
         if (!this.streamAnalysisEnabled) return;
@@ -117,13 +139,14 @@ export class IntelligentOrchestrator {
     }
 
     /**
-     * Get approach recommendation based on current stream analysis
+     * Get approach recommendation based on current stream analysis data
+     * @param {number} queryComplexity - Estimated complexity of the registered query (1-10 scale)
+     * @returns {Promise<ApproachRecommendation | null>} - The recommended approach and details, or null if no recommendation could be made
      */
     async getApproachRecommendation(queryComplexity: number = 5): Promise<ApproachRecommendation | null> {
         if (!this.streamAnalysisEnabled) return null;
 
         try {
-            // Get recommendation using the wrapper
             const recommendation = this.scoutBee.getApproachRecommendation();
             
             if (!recommendation) {
@@ -134,7 +157,6 @@ export class IntelligentOrchestrator {
             this.lastRecommendation = recommendation;
             this.analysisHistory.push(recommendation);
             
-            // Keep only recent history
             if (this.analysisHistory.length > 10) {
                 this.analysisHistory.shift();
             }
@@ -149,8 +171,10 @@ export class IntelligentOrchestrator {
     }
 
     /**
-     * Run registered query with intelligent approach selection
-     */
+    * Run the registered query with intelligent approach selection based on analysis mode
+    * @param {string} [forceApproach] - Optional approach to force (overrides analysis mode)
+    * @returns {Promise<void>} - No return value and runs the registered query
+    */
     async runRegisteredQueryIntelligent(forceApproach?: string): Promise<void> {
         if (this.registeredQuery === "") {
             console.log("No registered query to run.");
@@ -159,12 +183,11 @@ export class IntelligentOrchestrator {
 
         let selectedApproach = forceApproach || this.operatorType;
 
-        // Determine approach based on analysis mode
         if (!forceApproach) {
             selectedApproach = await this.selectApproachBasedOnMode();
         }
 
-        // Execute with selected approach
+        // Execute the registered query with the selected approach and any sub-queries to the "output" MQTT topic.
         this.beeKeeper.executeQuery(
             this.registeredQuery, 
             "output", 
@@ -177,6 +200,8 @@ export class IntelligentOrchestrator {
 
     /**
      * Select approach based on current analysis mode
+     * @returns {Promise<string>} - The selected approach to use for query execution
+     * @private
      */
     private async selectApproachBasedOnMode(): Promise<string> {
         switch (this.analysisMode) {
@@ -235,10 +260,11 @@ export class IntelligentOrchestrator {
     }
 
     /**
-     * Get stream analysis summary
+     * Get summary of current analysis state and history and recommendations
+     * @returns {AnalysisSummary} - Summary object containing current analysis settings and recent recommendation history
      */
-    getAnalysisSummary(): any {
-        const summary: any = {
+    getAnalysisSummary(): AnalysisSummary {
+        const summary: AnalysisSummary = {
             analysisMode: this.analysisMode,
             streamAnalysisEnabled: this.streamAnalysisEnabled,
             manualApproach: this.manualApproach,
@@ -271,7 +297,8 @@ export class IntelligentOrchestrator {
     }
 
     /**
-     * Clear sub-queries
+     * Clear sub-queries from the orchestrator
+     * @returns {void} - No return value.
      */
     clearSubQueries(): void {
         this.subQueriesToRun = [];
@@ -279,7 +306,9 @@ export class IntelligentOrchestrator {
     }
 
     /**
-     * Run sub-queries
+     * Run sub-queries managed by the orchestrator.
+     * It initiates processing for each sub-query using RSPAgent.
+     * @returns {void} - No return value.
      */
     runSubQueries(): void {
         if (this.subQueriesToRun.length === 0) {
@@ -307,8 +336,12 @@ export class IntelligentOrchestrator {
         this.runRegisteredQueryIntelligent();
     }
 
-    // Private helper methods
-
+    /**
+     * Helper to get recent stream data for analysis
+     * @private
+     * @return {Array<{timestamp: number, value: number}>} - Recent stream data points
+     * @memberof IntelligentOrchestrator
+     */
     private getRecentStreamData(): Array<{timestamp: number, value: number}> {
         // This would be implemented to get recent data from the scout bee's analysis window
         // For now, returning empty array - in real implementation, this would access
@@ -316,6 +349,13 @@ export class IntelligentOrchestrator {
         return [];
     }
 
+    /**
+     * Estimate the complexity of a query 
+     * @private
+     * @param {string} query - The query to analyze
+     * @return {number} - The estimated complexity (1-10)
+     * @memberof IntelligentOrchestrator
+     */
     private estimateQueryComplexity(query: string): number {
         // Simple complexity estimation based on query characteristics
         let complexity = 1;
@@ -339,6 +379,14 @@ export class IntelligentOrchestrator {
         return Math.min(complexity, 10);
     }
 
+
+    /**
+     * Map approach string to operator type
+     * @private 
+     * @param {string} approach - The approach string to map
+     * @return {string} - The corresponding operator type
+     * @memberof IntelligentOrchestrator
+     */
     private mapApproachToOperatorType(approach: string): string {
         const mapping: Record<string, string> = {
             'approximation': 'approximation-approach',
@@ -350,6 +398,13 @@ export class IntelligentOrchestrator {
         return mapping[approach] || this.operatorType;
     }
 
+    /**
+     * Log the approach recommendation details to console
+     * @private 
+     * @param {ApproachRecommendation} recommendation - The recommendation to log 
+     * @returns {void} - No return value.
+     * @memberof IntelligentOrchestrator
+     */
     private logRecommendation(recommendation: ApproachRecommendation): void {
         console.log(`\n=== APPROACH RECOMMENDATION ===`);
         console.log(`Recommended: ${recommendation.recommendedApproach.toUpperCase()}`);

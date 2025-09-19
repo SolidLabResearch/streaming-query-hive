@@ -57,3 +57,14 @@ export type ApproachRecommendation = {
     reasoning: string[];
     signature: StreamSignature;
 };
+
+export type AnalysisSummary = {
+    analysisMode: 'automatic' | 'manual' | 'hybrid';
+    streamAnalysisEnabled: boolean;
+    manualApproach: string | null;
+    lastRecommendation: ApproachRecommendation | null;
+    historyLength: number;
+    warning?: string;
+    recentApproaches?: Record<string, number>;
+    averageConfidence?: number;
+};
